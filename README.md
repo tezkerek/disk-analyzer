@@ -1,0 +1,24 @@
+- client argument parsing (POSIX getopt)
+- ipc (2 options)
+    - sockets
+        - handles multiple clients
+        - serializing and deserializing results is complicated
+    - shared memory
+        - handling multiple simultaneous client calls? (probably out of scope)
+        - no (de)serialization
+    - both??
+- daemon
+    - array of thread ids and state
+        - reallocation?? :notlikethis:
+    - (1): `pthread_create`, ez
+        - (b): recursive basename() and check for existence
+    - (2): `pthread_cancel`? or running state + polling?
+    - (3): `pthread_suspend`? or mutexes?
+    - (4): query state
+    - task progress - query number of files in first level? all levels?
+    - traversal
+        - nftw
+        - don't follow symlinks
+- printing results in client
+    - if sockets, must deserialize the data
+    - pretty printing can be complex
