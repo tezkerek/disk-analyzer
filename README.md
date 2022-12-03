@@ -1,16 +1,10 @@
-- client argument parsing (POSIX getopt)
-- ipc (2 options)
-    - sockets
-        - handles multiple clients
-        - serializing and deserializing results is complicated
-    - shared memory
-        - handling multiple simultaneous client calls? (probably out of scope)
-        - no (de)serialization
-    - both??
-- daemon
+### TODO
+- [x] client argument parsing (POSIX getopt)
+- [x] ipc: sockets
+- [ ] daemon
     - array of thread ids and state
-        - reallocation?? :notlikethis:
-    - (1): `pthread_create`, ez
+        - reallocation??
+    - (1): `pthread_create`
         - (b): recursive basename() and check for existence
     - (2): `pthread_cancel`? or running state + polling?
     - (3): `pthread_suspend`? or mutexes?
@@ -19,6 +13,14 @@
     - traversal
         - nftw
         - don't follow symlinks
-- printing results in client
-    - if sockets, must deserialize the data
+- [ ] printing results in client
     - pretty printing can be complex
+
+### Build
+`$ make build`
+
+### IPC protocol
+- 2 bytes - `"da"` (hex: `64 61`) magic bytes
+- 1 byte - command
+- 8 bytes - payload length
+- `<payload_length>` bytes - payload
