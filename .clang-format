@@ -1,0 +1,9 @@
+IndentWidth:     4
+ColumnLimit:     85
+AlignConsecutiveMacros: true
+
+AlignArrayOfStructures: Left
+
+AllowAllArgumentsOnNextLine: false
+BinPackArguments: false
+BinPackParameters: false
