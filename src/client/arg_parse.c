@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int main(int argc, char **argv) {
+int _main(int argc, char **argv) {
     int c;
     int digit_optind = 0;
     int arg_a = 0;

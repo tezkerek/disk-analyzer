@@ -1,5 +1,5 @@
-#include "ipc.h"
-#include "utils.h"
+#include <common/ipc.h>
+#include <common/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
