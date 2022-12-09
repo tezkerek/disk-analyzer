@@ -1,5 +1,5 @@
-#include "ipc.h"
-#include "utils.h"
+#include <common/ipc.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
