@@ -1,5 +1,5 @@
-#include <common/ipc.h>
 #include <common/utils.h>
+#include <common/ipc.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -9,6 +9,85 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <sched.h>
+#define _XOPEN_SOURCE 501
+#include <ftw.h>
+#include <stdint.h>
+#include <sys/stat.h>
+#include <libgen.h>
+
+
+
+#define MAX_THREADS 100
+#define MAX_CHILDREN 59
+
+struct Directory 
+{
+    char *path;             
+    struct Directory *parent;                  
+    struct Directory *children[MAX_CHILDREN]; 
+    uint32_t bytes;        
+    uint32_t number_files;
+    uint32_t number_subdir; 
+};
+
+struct Pet_tree_node // este Misu <3
+{
+    short status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
+    struct Directory *root; // children directories
+};
+static uint64_t idSequence = 0;
+
+pthread_t threads_arr[MAX_THREADS]; 
+
+struct Directory *last[100];
+
+static int build_arb (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+	if (S_ISDIR(sb->st_mode) && last[0]->parent != NULL) {
+		while (strcmp(dirname(fpath), last[0]->path)) {
+			last[0] = last[0]->parent;
+		}
+		struct Directory *current;
+		current->parent = last[0];
+		last[0]->number_subdir++;
+		current->number_subdir = 0;
+		current->path = fpath;
+		current->bytes = 0;
+		current->number_files = 0;	
+		last[0]->children[last[0]->number_subdir] = current;
+		last[0] = current;
+	}
+	else if (!S_ISDIR(sb->st_mode)) {
+		last[0]->number_files++;
+		last[0]->bytes += sb->st_size;
+	}
+
+	return 0;
+}
+
+void *traverse (void *path) {
+	printf("%s", "am intrat in traverse\n");
+	int nopenfd = 20;  // ne gandim cat vrem sa punem
+	char *p = path;
+	
+	struct Directory *root;
+	strcpy(root->parent, p);
+	root->parent = NULL;
+	root->bytes = root->number_files = root->number_subdir = 0;        
+	last[0] = root;
+	
+	if (nftw(p, build_arb, nopenfd, NULL) == -1) {
+		perror("nsfw");   // modif
+		exit(EXIT_FAILURE); 
+	}
+	
+	
+	printf("ajung aici? %d\n", root->bytes);
+	return 0;
+	//exit(EXIT_SUCCESS);
+	//return 5;
+}
+
 
 #define MAX_THREADS            100 // danger
 #define MAX_CHILDREN           100 // danger
@@ -204,18 +283,19 @@ int main() {
     signal(SIGPIPE, SIG_IGN);
 
     // In daemon now
-    int serverfd = bind_socket();
+    //int serverfd = bind_socket();
 
     // Start IPC monitoring thread
-    pthread_t ipc_monitor_thread;
-    if (pthread_create(&ipc_monitor_thread, NULL, monitor_ipc, &serverfd) != 0) {
-        perror("Failed to create IPC monitoring thread");
-        close(serverfd);
-        exit(EXIT_FAILURE);
-    }
-    pthread_join(ipc_monitor_thread, NULL);
+    //pthread_t ipc_monitor_thread;
+    //if (pthread_create(&ipc_monitor_thread, NULL, monitor_ipc, &serverfd) != 0) {
+    //    perror("Failed to create IPC monitoring thread");
+    //    close(serverfd);
+    //    exit(EXIT_FAILURE);
+    //}
+    //pthread_join(ipc_monitor_thread, NULL);
 
-    close(serverfd);
-
+    //close(serverfd);
+    printf("%s", "meow");
+	int x = create_job("/home/adela/so_lab", 2);
     return EXIT_SUCCESS;
 }
