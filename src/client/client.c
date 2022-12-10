@@ -40,8 +40,7 @@ struct return_struct *args_struct;
 int main(int argc, char *argv[]) {
     int serverfd = connect_to_socket();
 
-    char *text = argv[1];
-    printf("petrik\n");
+    //  char *text = argv[1];
     // Send command to daemon
     // if (send_ipc_msg(serverfd, CMD_ADD, text, strlen(text)) < 0) {
     //     perror("Failed send");
@@ -79,7 +78,7 @@ int main(int argc, char *argv[]) {
     payload = malloc(payload_len+1);
     strcpy(payload, args_struct->payload);
     payload[payload_len] = 0;
-    printf("%d, %ld, %s", cmd, payload_len, payload);
+    printf("command :%d, payload_len:%ld, payload:%s\n", cmd, payload_len, payload);
 
     printf("Received %s\n", payload);
 

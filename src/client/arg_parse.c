@@ -50,57 +50,47 @@ struct return_struct* get_args(int argc, char **argv) {
             strcpy(p_value, optarg);
             break;
 
-        case 'S':
+        case 'S':            // SUSPEND
             id = atoi(optarg);
-            (*ret).cmd = 2;
-            (*ret).payload = malloc(strlen(optarg));
-            strcpy((*ret).payload, optarg);
-            (*ret).payload_len = strlen(optarg);
-            return (void*) ret;
-            // printf("option S with value '%d'\n", id);
-            // SUSPEND
+            ret->cmd = 2;
+            ret->payload = malloc(strlen(optarg));
+            strcpy(ret->payload, optarg);
+            ret->payload_len = strlen(optarg);
+            return ret;
             break;
 
-        case 'R':
+        case 'R':            // RESUME
             id = atoi(optarg);
-            (*ret).cmd = 3;
-            (*ret).payload = malloc(strlen(optarg));
-            strcpy((*ret).payload, optarg);
-            (*ret).payload_len = strlen(optarg);
-            return (void*) ret;
-            // printf("option R with value '%d'\n", id);
-            // RESUME
+            ret->cmd = 3;
+            ret->payload = malloc(strlen(optarg));
+            strcpy(ret->payload, optarg);
+            ret->payload_len = strlen(optarg);
+            return ret;
             break;
 
-        case 'r':
+        case 'r':            // REMOVE
             id = atoi(optarg);
-            (*ret).cmd = 4;
-            (*ret).payload = malloc(strlen(optarg));
-            strcpy((*ret).payload, optarg);
-            (*ret).payload_len = strlen(optarg);
-            return (void*) ret;
-            // printf("option r with value '%d'\n", id);
-            // REMOVE
+            ret->cmd = 4;
+            ret->payload = malloc(strlen(optarg));
+            strcpy(ret->payload, optarg);
+            ret->payload_len = strlen(optarg);
+            return ret;
             break;
 
-        case 'i':
+        case 'i':            // INFO
             id = atoi(optarg);
-            (*ret).cmd = 5;
-            (*ret).payload = malloc(strlen(optarg));
-            strcpy((*ret).payload, optarg);
-            (*ret).payload_len = strlen(optarg);
-            return (void*) ret;
-            // printf("option i with value '%d'\n", id);
-            // INFO
+            ret->cmd = 5;
+            ret->payload = malloc(strlen(optarg));
+            strcpy(ret->payload, optarg);
+            ret->payload_len = strlen(optarg);
+            return ret;
             break;
 
-        case 'l':
-            (*ret).cmd = 6;
-            (*ret).payload = NULL;
-            (*ret).payload_len = 0;
-            return (void*) ret;
-            // printf("option l");
-            // LIST
+        case 'l':            // LIST
+            ret->cmd = 6;
+            ret->payload = "";
+            ret->payload_len = 0;
+            return ret;
             break;
 
         case '?':
@@ -111,22 +101,21 @@ struct return_struct* get_args(int argc, char **argv) {
     }
 
     if (arg_a == 1) {
-        (*ret).cmd = 1;
-        (*ret).payload = malloc(strlen(optarg)+1);
-        strcpy((*ret).payload, path);
-        (*ret).payload_len = strlen(path);
-        return (void*) ret;
-        // priority = atoi(p_value);
-        // printf("option a with path '%s' and priority '%d'\n", path,  priority);
+        ret->cmd = 1;
+        ret->payload = malloc(strlen(path)+1);
+        strcpy(ret->payload,p_value);
+        ret->payload++;
+        strcpy(ret->payload, path);
+        ret->payload--;
+        ret->payload_len = strlen(path)+1;
+        return ret;
         // ADD
     } else if (arg_p == 1) {
-        (*ret).cmd = 7;
-        (*ret).payload = malloc(strlen(p_value));
-        strcpy((*ret).payload, path);
-        (*ret).payload_len = strlen(p_value);
-        return (void*) ret;
-        // id = atoi(p_value);
-        // printf("option p with value '%d'\n", id);
+        ret->cmd = 7;
+        ret->payload = malloc(strlen(p_value));
+        strcpy(ret->payload, p_value);
+        ret->payload_len = strlen(p_value);
+        return ret;
         // PRINT
     }
 
