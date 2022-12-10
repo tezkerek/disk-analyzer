@@ -102,12 +102,12 @@ struct return_struct* get_args(int argc, char **argv) {
 
     if (arg_a == 1) {
         ret->cmd = 1;
-        ret->payload = malloc(strlen(path)+1);
-        strcpy(ret->payload,p_value);
+        ret->payload = malloc(strlen(path)+2);
+        ret->payload[0] = ((int8_t)*p_value)-((int8_t)'0');
         ret->payload++;
         strcpy(ret->payload, path);
         ret->payload--;
-        ret->payload_len = strlen(path)+1;
+        ret->payload_len = strlen(path)+2;
         return ret;
         // ADD
     } else if (arg_p == 1) {

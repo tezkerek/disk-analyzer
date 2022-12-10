@@ -75,8 +75,7 @@ int main(int argc, char *argv[]) {
     //     exit(EXIT_FAILURE);
     // }
     char *payload;
-    payload = malloc(payload_len+1);
-    strcpy(payload, args_struct->payload);
+    payload = args_struct->payload;
     payload[payload_len] = 0;
     printf("command :%d, payload_len:%ld, payload:%s\n", cmd, payload_len, payload);
 
