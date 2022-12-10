@@ -296,6 +296,6 @@ int main() {
 
     //close(serverfd);
     printf("%s", "meow");
-	int x = create_job("/home/adela/so_lab", 2);
+	int x = create_job("/home/adela/disk-analyzer", 2);
     return EXIT_SUCCESS;
 }
