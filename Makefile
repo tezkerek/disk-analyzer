@@ -34,7 +34,7 @@ $(ALL_OBJS): $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 daemon: $(DAEMON_OBJS) $(DAEMON_DEPS) pre-build
-	$(CC) -o $(BUILD_DIR)/dad $(DAEMON_OBJS) $(CFLAGS)
+	$(CC) -pthread -o $(BUILD_DIR)/dad $(DAEMON_OBJS) $(CFLAGS)
 
 client: $(CLIENT_OBJS) $(CLIENT_DEPS) pre-build
 	$(CC) -o $(BUILD_DIR)/da $(CLIENT_OBJS) $(CFLAGS)
