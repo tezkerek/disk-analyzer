@@ -29,11 +29,11 @@ int bind_socket() {
 
 int pause_thread(int64_t id) {}
 int remove_analisys(int64_t id) {}
-int resume_analisys(int64_t id) {}
 int print_done_jobs() {}
+int resume_analisys(int64_t id) {}
 int info_analisys(int64_t id) {}
 int list_jobs() {}
-int create_job(char *path) {}
+int create_job(char *path, int8_t priority) {}
 int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
 
     if (cmd == CMD_SUSPEND) { // pause analysis
@@ -49,7 +49,7 @@ int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
     } else if (cmd == CMD_LIST) { // list all tasks
         list_jobs();
     } else if (cmd == CMD_ADD) { // create job
-        create_job(payload);
+        create_job(payload + 1, atoi(payload[0]));
     }
 }
 
