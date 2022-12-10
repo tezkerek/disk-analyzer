@@ -27,8 +27,30 @@ int bind_socket() {
     return fd;
 }
 
+int pause_thread( ) {}
+int remove_analisys() {}
+int resume_analisys() {}
+int print_done_jobs() {}
+int info_analisys() {}
+int list_jobs() {}
+int create_job() {}
 int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
-    // TODO Decode and handle command
+
+    if (cmd == CMD_SUSPEND) { // pause analysis
+        pause_thread(atoi(payload));
+    } else if (cmd == CMD_REMOVE) { // remove job
+        remove_analisys(atoi(payload));
+    } else if (cmd == CMD_RESUME) { // resume job
+        resume_analisys(atoi(payload));
+    } else if (cmd == CMD_PRINT) { // print report for 'done' tasks
+        print_done_jobs();
+    } else if (cmd == CMD_INFO) { // info about analysis
+        info_analisys(atoi(payload));
+    } else if (cmd == CMD_LIST) { // list all tasks
+        list_jobs();
+    } else if (cmd == CMD_ADD) { // create job
+        create_job();
+    }
 }
 
 void *monitor_ipc(void *vserverfd) {
