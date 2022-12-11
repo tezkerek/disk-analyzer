@@ -53,7 +53,7 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 	strcpy(aux, fpath);
 	strcpy(aux, dirname(aux));
 	while (strcmp(aux, last[0]->path)) {
-		last[0]->parent->bytes += last[0]->bytes;
+		//last[0]->parent->bytes += last[0]->bytes;
 		last[0] = last[0]->parent;
 	}
 	
@@ -63,7 +63,7 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 		current->parent = last[0];
 		last[0]->number_subdir++;
 		current->number_subdir = 0;
-		current->path = malloc(strlen(fpath) * sizeof(char));
+		current->path = malloc(strlen(fpath) * sizeof(char) + 1);
 		strcpy(current->path, fpath); 
 		current->bytes = 0;
 		current->number_files = 0;	
@@ -79,7 +79,7 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 	return 0;
 }
 
-/*
+
 int total_size (struct Directory *root) {
 	if (root->number_subdir == 0) {
 		printf("%s %d\n", root->path, root->bytes);
@@ -93,7 +93,7 @@ int total_size (struct Directory *root) {
 		return current_size;
 	}
 }
-*/
+
 
 void *traverse (void *path) {
 	printf("%s", "am intrat in traverse\n");
@@ -101,7 +101,7 @@ void *traverse (void *path) {
 	char *p = path;
 	
 	struct Directory *root = malloc(sizeof(*root));
-	root->path = malloc(strlen(p) * sizeof(char));
+	root->path = malloc(strlen(p) * sizeof(char) + 1);
 	strcpy(root->path, p);
 	root->parent = malloc(sizeof(*root->parent));
 	root->parent = NULL;
@@ -113,15 +113,13 @@ void *traverse (void *path) {
 		return errno;
 	}
 
-	//while (root->parent != NULL) {
-	//	root->parent->bytes += root->bytes;
-	//	root = root->parent;
-	//}
+	while (last[0]->parent != NULL) {
+		//last[0]->parent->bytes += last[0]->bytes;
+		last[0] = last[0]->parent;
+	}
 	
-	//printf("ajung aici? %d\n", root->bytes);
+	printf("ajung aici? %d\n", total_size(last[0]));
 	return 0;
-	//exit(EXIT_SUCCESS);
-	//return 5;
 }
 
 
@@ -332,6 +330,6 @@ int main() {
 
     //close(serverfd);
     printf("%s", "meow");
-	int x = create_job("/home/adela/disk-analyzer", 2);
+	int x = create_job("/home/adela/.local", 2);
     return EXIT_SUCCESS;
 }
