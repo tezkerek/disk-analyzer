@@ -60,13 +60,13 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 		struct Directory *current = malloc(sizeof(*current));
 		current->parent = malloc(sizeof(*current->parent));
 		current->parent = last[0];
-		last[0]->number_subdir++;
 		current->number_subdir = 0;
 		current->path = malloc(strlen(fpath) * sizeof(char));
 		strcpy(current->path, fpath); 
 		current->bytes = 0;
 		current->number_files = 0;	
 		last[0]->children[last[0]->number_subdir] = current;
+		last[0]->number_subdir++; 
 		last[0] = current;
 	}
 	else {
@@ -93,7 +93,19 @@ int total_size (struct Directory *root) {
 	}
 }
 */
+int end_me(const char *fpath) {
 
+    printf("%s\n", fpath);
+    char aux[1000];
+    strcpy(aux, fpath);
+    while (strcmp(aux, last[0]->path)) { // if its not  == =
+        last[0]->parent->bytes += last[0]->bytes;
+        last[0] = last[0]->parent;
+    }
+
+    printf("%s %s\n", fpath, last[0]->path);
+    return 0;
+}
 void *traverse (void *path) {
 	printf("%s", "am intrat in traverse\n");
 	int nopenfd = 20;  // ne gandim cat vrem sa punem
@@ -116,8 +128,8 @@ void *traverse (void *path) {
 	//	root->parent->bytes += root->bytes;
 	//	root = root->parent;
 	//}
-	
-	//printf("ajung aici? %d\n", root->bytes);
+    end_me(root->path); // asta rezolva prost o problema. ca functia nu face update la size si chestii daca e ultimul director din dfs
+	printf("ajung aici? %d\n", root->bytes);
 	return 0;
 	//exit(EXIT_SUCCESS);
 	//return 5;
