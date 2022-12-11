@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 500
 #include <common/utils.h>
 #include <common/ipc.h>
 #include <pthread.h>
@@ -9,11 +10,11 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <sched.h>
-#define _XOPEN_SOURCE 501
 #include <ftw.h>
 #include <stdint.h>
 #include <sys/stat.h>
 #include <libgen.h>
+#include <errno.h>
 
 
 
@@ -42,21 +43,34 @@ pthread_t threads_arr[MAX_THREADS];
 struct Directory *last[100];
 
 static int build_arb (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-	if (S_ISDIR(sb->st_mode) && last[0]->parent != NULL) {
-		while (strcmp(dirname(fpath), last[0]->path)) {
-			last[0] = last[0]->parent;
-		}
-		struct Directory *current;
+
+	printf("%s\n", fpath);
+
+	if (!strcmp(fpath, last[0]->path)) return 0;
+	
+	char aux[1000];
+	strcpy(aux, fpath);
+	strcpy(aux, dirname(aux));
+	while (strcmp(aux, last[0]->path)) {
+		last[0]->parent->bytes += last[0]->bytes;
+		last[0] = last[0]->parent;
+	}
+	
+	if (S_ISDIR(sb->st_mode)) {
+		struct Directory *current = malloc(sizeof(*current));
+		current->parent = malloc(sizeof(*current->parent));
 		current->parent = last[0];
 		last[0]->number_subdir++;
 		current->number_subdir = 0;
-		current->path = fpath;
+		current->path = malloc(strlen(fpath) * sizeof(char));
+		strcpy(current->path, fpath); 
 		current->bytes = 0;
 		current->number_files = 0;	
 		last[0]->children[last[0]->number_subdir] = current;
 		last[0] = current;
 	}
-	else if (!S_ISDIR(sb->st_mode)) {
+	else {
+		//printf("%s %s\n", fpath, last[0]->path);
 		last[0]->number_files++;
 		last[0]->bytes += sb->st_size;
 	}
@@ -64,24 +78,46 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 	return 0;
 }
 
+/*
+int total_size (struct Directory *root) {
+	if (root->number_subdir == 0) {
+		printf("%s %d\n", root->path, root->bytes);
+		return root->bytes;
+	}
+	else { 
+		int current_size = root->bytes;
+		for (int i = 1; i <= root->number_subdir; ++i) 
+			current_size += total_size(root->children[i]);
+		printf("%s %d\n", root->path, current_size);
+		return current_size;
+	}
+}
+*/
+
 void *traverse (void *path) {
 	printf("%s", "am intrat in traverse\n");
 	int nopenfd = 20;  // ne gandim cat vrem sa punem
 	char *p = path;
 	
-	struct Directory *root;
-	strcpy(root->parent, p);
+	struct Directory *root = malloc(sizeof(*root));
+	root->path = malloc(strlen(p) * sizeof(char));
+	strcpy(root->path, p);
+	root->parent = malloc(sizeof(*root->parent));
 	root->parent = NULL;
 	root->bytes = root->number_files = root->number_subdir = 0;        
 	last[0] = root;
 	
-	if (nftw(p, build_arb, nopenfd, NULL) == -1) {
+	if (nftw(p, build_arb, nopenfd, 0) == -1) {
 		perror("nsfw");   // modif
-		exit(EXIT_FAILURE); 
+		return errno;
 	}
+
+	//while (root->parent != NULL) {
+	//	root->parent->bytes += root->bytes;
+	//	root = root->parent;
+	//}
 	
-	
-	printf("ajung aici? %d\n", root->bytes);
+	//printf("ajung aici? %d\n", root->bytes);
 	return 0;
 	//exit(EXIT_SUCCESS);
 	//return 5;
