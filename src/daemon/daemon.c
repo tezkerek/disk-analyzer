@@ -1,124 +1,138 @@
-#define _XOPEN_SOURCE 500
-#include <common/utils.h>
 #include <common/ipc.h>
+#include <common/utils.h>
+#include <errno.h>
+#include <ftw.h>
+#include <libgen.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <sched.h>
-#include <ftw.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <libgen.h>
-#include <errno.h>
 
-
-
-#define MAX_THREADS 100
+#define MAX_THREADS  100
 #define MAX_CHILDREN 59
 
-struct Directory 
-{
-    char *path;             
-    struct Directory *parent;                  
-    struct Directory *children[MAX_CHILDREN]; 
-    uint32_t bytes;        
+struct Directory {
+    char *path;
+    struct Directory *parent;
+    struct Directory *children[MAX_CHILDREN];
+    uint32_t bytes;
     uint32_t number_files;
-    uint32_t number_subdir; 
+    uint32_t number_subdir;
 };
 
 struct Pet_tree_node // este Misu <3
 {
-    short status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
+    short status; // status of job -> in progress(0), done(1), removed(3), paused(2)
     struct Directory *root; // children directories
 };
 static uint64_t idSequence = 0;
 
-pthread_t threads_arr[MAX_THREADS]; 
+pthread_t threads_arr[MAX_THREADS];
 
 struct Directory *last[100];
 
-static int build_arb (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+static int build_arb(const char *fpath,
+                     const struct stat *sb,
+                     int typeflag,
+                     struct FTW *ftwbuf) {
 
-	printf("%s\n", fpath);
+    printf("%s\n", fpath);
 
-	if (!strcmp(fpath, last[0]->path)) return 0;
-	
-	char aux[1000];
-	strcpy(aux, fpath);
-	strcpy(aux, dirname(aux));
-	while (strcmp(aux, last[0]->path)) {
-		//last[0]->parent->bytes += last[0]->bytes;
-		last[0] = last[0]->parent;
-	}
-	
-	if (S_ISDIR(sb->st_mode)) {
-		struct Directory *current = malloc(sizeof(*current));
-		current->parent = malloc(sizeof(*current->parent));
-		current->parent = last[0];
-		last[0]->number_subdir++;
-		current->number_subdir = 0;
-		current->path = malloc(strlen(fpath) * sizeof(char) + 1);
-		strcpy(current->path, fpath); 
-		current->bytes = 0;
-		current->number_files = 0;	
-		last[0]->children[last[0]->number_subdir] = current;
-		last[0] = current;
-	}
-	else {
-		//printf("%s %s\n", fpath, last[0]->path);
-		last[0]->number_files++;
-		last[0]->bytes += sb->st_size;
-	}
+    if (!strcmp(fpath, last[0]->path))
+        return 0;
 
-	return 0;
+    char aux[1000];
+    strcpy(aux, fpath);
+    strcpy(aux, dirname(aux));
+    while (strcmp(aux, last[0]->path)) {
+        last[0]->parent->bytes += last[0]->bytes;
+        last[0] = last[0]->parent;
+    }
+
+    if (S_ISDIR(sb->st_mode)) {
+        struct Directory *current = malloc(sizeof(*current));
+        current->parent = malloc(sizeof(*current->parent));
+        current->parent = last[0];
+        current->number_subdir = 0;
+        current->path = malloc(strlen(fpath) * sizeof(char) + 1);
+        strcpy(current->path, fpath);
+        current->bytes = 0;
+        current->number_files = 0;
+        last[0]->children[last[0]->number_subdir] = current;
+        last[0]->number_subdir++;
+        last[0] = current;
+    } else {
+        // printf("%s %s\n", fpath, last[0]->path);
+        last[0]->number_files++;
+        last[0]->bytes += sb->st_size;
+    }
+
+    return 0;
 }
 
-
+/*
 int total_size (struct Directory *root) {
-	if (root->number_subdir == 0) {
-		return root->bytes;
-	}
-	else { 
-		int current_size = root->bytes;
-		for (int i = 1; i <= root->number_subdir; ++i) 
-			current_size += total_size(root->children[i]);
-		return current_size;
-	}
+        if (root->number_subdir == 0) {
+                printf("%s %d\n", root->path, root->bytes);
+                return root->bytes;
+        }
+        else {
+                int current_size = root->bytes;
+                for (int i = 1; i <= root->number_subdir; ++i)
+                        current_size += total_size(root->children[i]);
+                printf("%s %d\n", root->path, current_size);
+                return current_size;
+        }
 }
+*/
+int end_me(const char *fpath) {
 
+    printf("%s\n", fpath);
+    char aux[1000];
+    strcpy(aux, fpath);
+    while (strcmp(aux, last[0]->path)) { // if its not  == =
+        last[0]->parent->bytes += last[0]->bytes;
+        last[0] = last[0]->parent;
+    }
 
-void *traverse (void *path) {
-	//printf("%s", "am intrat in traverse\n");
-	int nopenfd = 20;  // ne gandim cat vrem sa punem
-	char *p = path;
-	
-	struct Directory *root = malloc(sizeof(*root));
-	root->path = malloc(strlen(p) * sizeof(char) + 1);
-	strcpy(root->path, p);
-	root->parent = malloc(sizeof(*root->parent));
-	root->parent = NULL;
-	root->bytes = root->number_files = root->number_subdir = 0;        
-	last[0] = root;
-	
-	if (nftw(p, build_arb, nopenfd, FTW_PHYS) == -1) {
-		perror("nsfw");   // modif
-		return errno;
-	}
-
-	while (last[0]->parent != NULL) {
-		//last[0]->parent->bytes += last[0]->bytes;
-		last[0] = last[0]->parent;
-	}
-	
-	printf("ajung aici? %d\n", total_size(last[0]));
-	return 0;
+    printf("%s %s\n", fpath, last[0]->path);
+    return 0;
 }
+void *traverse(void *path) {
+    printf("%s", "am intrat in traverse\n");
+    int nopenfd = 20; // ne gandim cat vrem sa punem
+    char *p = path;
 
+    struct Directory *root = malloc(sizeof(*root));
+    root->path = malloc(strlen(p) * sizeof(char) + 1);
+    strcpy(root->path, p);
+    root->parent = malloc(sizeof(*root->parent));
+    root->parent = NULL;
+    root->bytes = root->number_files = root->number_subdir = 0;
+    last[0] = root;
+
+    if (nftw(p, build_arb, nopenfd, 0) == -1) {
+        perror("nsfw"); // modif
+        return errno;
+    }
+
+    // while (root->parent != NULL) {
+    //	root->parent->bytes += root->bytes;
+    //	root = root->parent;
+    // }
+    end_me(root->path); // asta rezolva prost o problema. ca functia nu face update
+                        // la size si chestii daca e ultimul director din dfs
+    printf("ajung aici? %d\n", root->bytes);
+    return 0;
+    // exit(EXIT_SUCCESS);
+    // return 5;
+}
 
 int bind_socket() {
     struct sockaddr_un address;
@@ -145,36 +159,32 @@ int resume_analisys(int64_t id) {}
 int info_analisys(int64_t id) {}
 int list_jobs() {}
 
-
 int create_job(char *path, int8_t priority) {
-	pthread_attr_t tattr;
-	struct sched_param param;
+    pthread_attr_t tattr;
+    struct sched_param param;
 
-	int ret = pthread_attr_init (&tattr);
-	ret = pthread_attr_getschedparam (&tattr, &param);
+    int ret = pthread_attr_init(&tattr);
+    ret = pthread_attr_getschedparam(&tattr, &param);
 
-	param.sched_priority = priority;
-	
-	ret = pthread_attr_setschedparam (&tattr, &param);
+    param.sched_priority = priority;
 
-	ret = pthread_create (&threads_arr[0], NULL, traverse, (void*)path);
+    ret = pthread_attr_setschedparam(&tattr, &param);
 
-	if (ret) {
-		perror("Error creating thread");
-		exit(EXIT_FAILURE);
-	}
+    ret = pthread_create(&threads_arr[0], NULL, traverse, (void *)path);
 
-	pthread_join(threads_arr[0], NULL);
-	
-	printf("%s", "gata create job\n");
-	
-	
-	
-	++idSequence;
-	
-	return 0;
+    if (ret) {
+        perror("Error creating thread");
+        exit(EXIT_FAILURE);
+    }
+
+    pthread_join(threads_arr[0], NULL);
+
+    printf("%s", "gata create job\n");
+
+    ++idSequence;
+
+    return 0;
 }
-
 
 int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
 
@@ -269,19 +279,19 @@ int main() {
     /* } */
 
     // In daemon now
-    //int serverfd = bind_socket();
+    // int serverfd = bind_socket();
 
     // Start IPC monitoring thread
-    //pthread_t ipc_monitor_thread;
-    //if (pthread_create(&ipc_monitor_thread, NULL, monitor_ipc, &serverfd) != 0) {
+    // pthread_t ipc_monitor_thread;
+    // if (pthread_create(&ipc_monitor_thread, NULL, monitor_ipc, &serverfd) != 0) {
     //    perror("Failed to create IPC monitoring thread");
     //    close(serverfd);
     //    exit(EXIT_FAILURE);
     //}
-    //pthread_join(ipc_monitor_thread, NULL);
+    // pthread_join(ipc_monitor_thread, NULL);
 
-    //close(serverfd);
+    // close(serverfd);
     printf("%s", "meow");
-	int x = create_job("/home/adela/.local", 2);
+    int x = create_job("/home/stefan/.anaconda", 2);
     return EXIT_SUCCESS;
 }
