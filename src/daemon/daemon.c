@@ -81,21 +81,19 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 
 int total_size (struct Directory *root) {
 	if (root->number_subdir == 0) {
-		printf("%s %d\n", root->path, root->bytes);
 		return root->bytes;
 	}
 	else { 
 		int current_size = root->bytes;
 		for (int i = 1; i <= root->number_subdir; ++i) 
 			current_size += total_size(root->children[i]);
-		printf("%s %d\n", root->path, current_size);
 		return current_size;
 	}
 }
 
 
 void *traverse (void *path) {
-	printf("%s", "am intrat in traverse\n");
+	//printf("%s", "am intrat in traverse\n");
 	int nopenfd = 20;  // ne gandim cat vrem sa punem
 	char *p = path;
 	
@@ -107,7 +105,7 @@ void *traverse (void *path) {
 	root->bytes = root->number_files = root->number_subdir = 0;        
 	last[0] = root;
 	
-	if (nftw(p, build_arb, nopenfd, 0) == -1) {
+	if (nftw(p, build_arb, nopenfd, FTW_PHYS) == -1) {
 		perror("nsfw");   // modif
 		return errno;
 	}
