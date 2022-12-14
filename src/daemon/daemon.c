@@ -11,15 +11,31 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#define MAX_THREADS  100
-#define MAX_CHILDREN 59
+#define MAX_THREADS  100 // danger
+#define MAX_CHILDREN 100 // danger
 #define IN_PROGRESS  0
-#define REMOVED      3
+#define REMOVED      1
 #define PAUSED       2
-#define DONE         1
-#define SIGCONTv     18
+#define DONE         3
 
-void pretty_print_job(){};
+struct Directory {
+    char *path;                               // path to this directory
+    struct Directory *children[MAX_CHILDREN]; // children directories
+    // Change unit of measurement for folders?
+    uint32_t bytes; // size of folder
+    uint32_t
+        number_files; // number of files at this level, not counting grandchildren !!
+};
+struct Pet_tree_node // este Misu <3
+{
+    pthread_t thread;
+    short status; // status of job -> in progress(0), done(1), removed(3), paused(2)
+    struct Directory *root; // children directories
+};
+
+static uint64_t id_sequence = 0;
+struct Pet_tree_node job_history[MAX_THREADS];
+
 int bind_socket() {
     struct sockaddr_un address;
     int fd = init_socket(&address);
@@ -38,25 +54,40 @@ int bind_socket() {
     return fd;
 }
 
-static uint64_t id_sequence = 0;
+void pretty_print_job(){};
 
-struct Directory {
-    char *path;                               // path to this directory
-    struct Directory *children[MAX_CHILDREN]; // children directories
-    // Change unit of measurement for folders?
-    uint32_t bytes; // size of folder
-    uint32_t
-        number_files; // number of files at this level, not counting grandchildren !!
-};
-struct Pet_tree_node // este Misu <3
-{
-    pthread_t thread;
-    short status; // status of job -> in progress(0), done(1), removed(3), paused(2)
-    struct Directory *root; // children directories
-};
+int remove_analisys(int64_t id) {
+    struct Pet_tree_node *this_job = &job_history[id];
+    if (this_job->status != DONE) {
+        if (kill(this_job->thread, SIGTERM) < 0) {
+            return -1;
+        }
+    }
+    this_job->status = REMOVED;
+    return 0;
+}
 
-struct Pet_tree_node job_history[MAX_THREADS];
-int remove_analisys(int64_t id) { job_history->status = REMOVED; }
+int resume_analisys(int64_t id) {
+    struct Pet_tree_node *this_job = &job_history[id];
+    if (kill(this_job->thread, SIGCONT) < 0) {
+        return -1;
+    }
+    this_job->status = IN_PROGRESS;
+    return 0;
+}
+
+int pause_thread(int64_t id) {
+    struct Pet_tree_node *this_job = &job_history[id];
+    if (this_job->status != DONE) {
+
+        if (kill(this_job->thread, SIGSTOP) < 0) {
+            return -1;
+        }
+        this_job->status = PAUSED;
+    }
+    return 0;
+} // mmove to new file?
+
 int print_done_jobs() {
     for (size_t i = 0; i < id_sequence; i++) {
         if (job_history[i].status == DONE) {
@@ -64,11 +95,13 @@ int print_done_jobs() {
         }
     }
 }
-int resume_analisys(int64_t id) { kill(&job_history[id].thread, SIGCONTv); }
-int pause_thread(int64_t id) { kill(&job_history[id].thread, SIGSTOP); }
+
 int info_analisys(int64_t id) {}
+
 int list_jobs() {}
+
 int create_job(char *path, int8_t priority) {}
+
 int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
 
     if (cmd == CMD_SUSPEND) { // pause analysis
@@ -84,7 +117,7 @@ int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
     } else if (cmd == CMD_LIST) { // list all tasks
         list_jobs();
     } else if (cmd == CMD_ADD) { // create job
-        create_job(payload + 1, atoi(payload[0]));
+        create_job(payload + 1, payload[0] - '0');
     }
     return 1;
 }
