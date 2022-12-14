@@ -7,13 +7,13 @@
 #define SOCKET_PATH "/tmp/disk-analyzer.socket"
 #define IPC_MAGIC   "da"
 
-#define CMD_SUSPEND 1
-#define CMD_REMOVE  2
+#define CMD_ADD     1
+#define CMD_SUSPEND 2
 #define CMD_RESUME  3
-#define CMD_PRINT   4
+#define CMD_REMOVE  4
 #define CMD_INFO    5
 #define CMD_LIST    6
-#define CMD_ADD     7
+#define CMD_PRINT   7
 
 /**
  * Initializes the socket and the address struct.
