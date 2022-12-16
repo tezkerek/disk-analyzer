@@ -24,3 +24,18 @@
 - 1 byte - command
 - 8 bytes - payload length
 - `<payload_length>` bytes - payload
+### Payload for `CMD_ADD`
+- `1` byte - priority
+- `<payload_length> - 1 ` bytes - path
+### Payload for `CMD_SUSPEND`
+- `8` bytes - id
+### Payload for `CMD_RESUME`
+- `8` bytes - id
+### Payload for `CMD_REMOVE`
+- `8` bytes - id
+### Payload for `CMD_INFO`
+- `8` bytes - id
+### Payload for `CMD_LIST`
+- `0` bytes 
+### Payload for `CMD_PRINT`
+- `8` bytes - id
