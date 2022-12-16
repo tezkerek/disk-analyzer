@@ -1,6 +1,7 @@
 #include <common/ipc.h>
 #include <common/utils.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,31 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+
+#define MAX_THREADS            100 // danger
+#define MAX_CHILDREN           100 // danger
+#define JOB_STATUS_IN_PROGRESS 0
+#define JOB_STATUS_REMOVED     1
+#define JOB_STATUS_PAUSED      2
+#define JOB_STATUS_DONE        3
+
+struct Directory {
+    char *path;                               // path to this directory
+    struct Directory *children[MAX_CHILDREN]; // children directories
+    // Change unit of measurement for folders?
+    uint64_t bytes; // size of folder
+    // number of files at this level, not counting grandchildren !!
+    uint64_t file_count;
+};
+struct Job // este Misu <3
+{
+    pthread_t thread;
+    int8_t status; // status of job -> in progress(0), done(1), removed(3), paused(2)
+    struct Directory *root; // children directories
+};
+
+static uint64_t job_count = 0;
+struct Job job_history[MAX_THREADS];
 
 int bind_socket() {
     struct sockaddr_un address;
@@ -27,8 +53,71 @@ int bind_socket() {
     return fd;
 }
 
+void pretty_print_job(){};
+
+int remove_job(int64_t id) {
+    struct Job *this_job = &job_history[id];
+    if (this_job->status != JOB_STATUS_DONE) {
+        if (kill(this_job->thread, SIGTERM) < 0) {
+            return -1;
+        }
+    }
+    this_job->status = JOB_STATUS_REMOVED;
+    return 0;
+}
+
+int resume_job(int64_t id) {
+    struct Job *this_job = &job_history[id];
+    if (kill(this_job->thread, SIGCONT) < 0) {
+        return -1;
+    }
+    this_job->status = JOB_STATUS_IN_PROGRESS;
+    return 0;
+}
+
+int pause_job(int64_t id) {
+    struct Job *this_job = &job_history[id];
+    if (this_job->status != JOB_STATUS_DONE) {
+
+        if (kill(this_job->thread, SIGSTOP) < 0) {
+            return -1;
+        }
+        this_job->status = JOB_STATUS_PAUSED;
+    }
+    return 0;
+} // mmove to new file?
+
+int print_done_jobs() {
+    for (size_t i = 0; i < job_count; i++) {
+        if (job_history[i].status == JOB_STATUS_DONE) {
+            pretty_print_job(i);
+        }
+    }
+}
+
+int get_job_info(int64_t id) {}
+
+int list_jobs() {}
+
+int create_job(char *path, int8_t priority) {}
+
 int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
-    // TODO Decode and handle command
+    if (cmd == CMD_SUSPEND) { // pause analysis
+        pause_job(atoi(payload));
+    } else if (cmd == CMD_REMOVE) { // remove job
+        remove_job(atoi(payload));
+    } else if (cmd == CMD_RESUME) { // resume job
+        resume_job(atoi(payload));
+    } else if (cmd == CMD_PRINT) { // print report for 'done' tasks
+        print_done_jobs();
+    } else if (cmd == CMD_INFO) { // info about analysis
+        get_job_info(atoi(payload));
+    } else if (cmd == CMD_LIST) { // list all tasks
+        list_jobs();
+    } else if (cmd == CMD_ADD) { // create job
+        create_job(payload + 1, payload[0] - '0');
+    }
+    return 1;
 }
 
 void *monitor_ipc(void *vserverfd) {
