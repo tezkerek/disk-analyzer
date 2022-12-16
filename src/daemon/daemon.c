@@ -36,64 +36,51 @@ struct Pet_tree_node // este Misu <3
     short status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
     struct Directory *root; // children directories
 };
+
+struct Pet_tree_node *jobs[MAX_THREADS];
+
 static uint64_t idSequence = 0;
 
 pthread_t threads_arr[MAX_THREADS]; 
 
-struct Directory *last[100];
+struct Directory *last[MAX_THREADS];
 
 static int build_arb (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
 
-	printf("%s\n", fpath);
-
-	if (!strcmp(fpath, last[0]->path)) return 0;
+	if (!strcmp(fpath, last[idSequence]->path)) return 0;
 	
-	char aux[1000];
+	char *aux = malloc(strlen(fpath) * sizeof(char) + 1);
 	strcpy(aux, fpath);
 	strcpy(aux, dirname(aux));
-	while (strcmp(aux, last[0]->path)) {
-		//last[0]->parent->bytes += last[0]->bytes;
-		last[0] = last[0]->parent;
+	while (strcmp(aux, last[idSequence]->path)) {
+		last[idSequence]->parent->bytes += last[idSequence]->bytes;
+		last[idSequence] = last[idSequence]->parent;
 	}
 	
-	if (S_ISDIR(sb->st_mode)) {
+	if (typeflag == FTW_D) {
 		struct Directory *current = malloc(sizeof(*current));
 		current->parent = malloc(sizeof(*current->parent));
-		current->parent = last[0];
-		last[0]->number_subdir++;
+		current->parent = last[idSequence];
+		last[idSequence]->number_subdir++;
+		last[idSequence]->bytes += sb->st_size;
 		current->number_subdir = 0;
 		current->path = malloc(strlen(fpath) * sizeof(char) + 1);
 		strcpy(current->path, fpath); 
 		current->bytes = 0;
 		current->number_files = 0;	
-		last[0]->children[last[0]->number_subdir] = current;
-		last[0] = current;
+		last[idSequence]->children[last[idSequence]->number_subdir] = current;
+		last[idSequence] = current;
 	}
 	else {
-		//printf("%s %s\n", fpath, last[0]->path);
-		last[0]->number_files++;
-		last[0]->bytes += sb->st_size;
+		last[idSequence]->number_files++;
+		last[idSequence]->bytes += sb->st_size;
 	}
 
 	return 0;
 }
 
-
-int total_size (struct Directory *root) {
-	if (root->number_subdir == 0) {
-		return root->bytes;
-	}
-	else { 
-		int current_size = root->bytes;
-		for (int i = 1; i <= root->number_subdir; ++i) 
-			current_size += total_size(root->children[i]);
-		return current_size;
-	}
-}
-
-
 void *traverse (void *path) {
-	//printf("%s", "am intrat in traverse\n");
+
 	int nopenfd = 20;  // ne gandim cat vrem sa punem
 	char *p = path;
 	
@@ -103,19 +90,18 @@ void *traverse (void *path) {
 	root->parent = malloc(sizeof(*root->parent));
 	root->parent = NULL;
 	root->bytes = root->number_files = root->number_subdir = 0;        
-	last[0] = root;
+	last[idSequence] = root;
 	
 	if (nftw(p, build_arb, nopenfd, FTW_PHYS) == -1) {
 		perror("nsfw");   // modif
 		return errno;
 	}
 
-	while (last[0]->parent != NULL) {
-		//last[0]->parent->bytes += last[0]->bytes;
-		last[0] = last[0]->parent;
+	while (last[idSequence]->parent != NULL) {
+		last[idSequence]->parent->bytes += last[idSequence]->bytes;
+		last[idSequence] = last[idSequence]->parent;
 	}
-	
-	printf("ajung aici? %d\n", total_size(last[0]));
+
 	return 0;
 }
 
@@ -301,7 +287,8 @@ int main() {
     //pthread_join(ipc_monitor_thread, NULL);
 
     //close(serverfd);
-    printf("%s", "meow");
-	int x = create_job("/home/adela/.local", 2);
+	int x = create_job("/home/adela/so_lab_mare", 2);
+	printf("%d\n", jobs[idSequence - 1]->root->bytes);
+
     return EXIT_SUCCESS;
 }
