@@ -10,19 +10,20 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#define MAX_THREADS  100 // danger
-#define MAX_CHILDREN 100 // danger
-#define JOB_STATUS_IN_PROGRESS  0
-#define JOB_STATUS_REMOVED      1
-#define JOB_STATUS_PAUSED       2
-#define JOB_STATUS_DONE         3
+#define MAX_THREADS            100 // danger
+#define MAX_CHILDREN           100 // danger
+#define JOB_STATUS_IN_PROGRESS 0
+#define JOB_STATUS_REMOVED     1
+#define JOB_STATUS_PAUSED      2
+#define JOB_STATUS_DONE        3
 
 struct Directory {
     char *path;                               // path to this directory
     struct Directory *children[MAX_CHILDREN]; // children directories
     // Change unit of measurement for folders?
     uint64_t bytes; // size of folder
-    uint64_t file_count // number of files at this level, not counting grandchildren !!
+    // number of files at this level, not counting grandchildren !!
+    uint64_t file_count;
 };
 struct Job // este Misu <3
 {
