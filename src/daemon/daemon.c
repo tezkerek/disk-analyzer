@@ -2,6 +2,7 @@
 #include <common/utils.h>
 #include <common/ipc.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,10 +17,12 @@
 #include <libgen.h>
 #include <errno.h>
 
-
-
-#define MAX_THREADS 100
-#define MAX_CHILDREN 59
+#define MAX_THREADS            100 // danger
+#define MAX_CHILDREN           100 // danger
+#define JOB_STATUS_IN_PROGRESS 0
+#define JOB_STATUS_REMOVED     1
+#define JOB_STATUS_PAUSED      2
+#define JOB_STATUS_DONE        3
 
 struct Directory 
 {
@@ -124,13 +127,51 @@ int bind_socket() {
     return fd;
 }
 
-int pause_thread(int64_t id) {}
-int remove_analisys(int64_t id) {}
-int print_done_jobs() {}
-int resume_analisys(int64_t id) {}
-int info_analisys(int64_t id) {}
-int list_jobs() {}
+void pretty_print_job(){};
 
+int remove_job(int64_t id) {
+    struct Job *this_job = &job_history[id];
+    if (this_job->status != JOB_STATUS_DONE) {
+        if (kill(this_job->thread, SIGTERM) < 0) {
+            return -1;
+        }
+    }
+    this_job->status = JOB_STATUS_REMOVED;
+    return 0;
+}
+
+int resume_job(int64_t id) {
+    struct Job *this_job = &job_history[id];
+    if (kill(this_job->thread, SIGCONT) < 0) {
+        return -1;
+    }
+    this_job->status = JOB_STATUS_IN_PROGRESS;
+    return 0;
+}
+
+int pause_job(int64_t id) {
+    struct Job *this_job = &job_history[id];
+    if (this_job->status != JOB_STATUS_DONE) {
+
+        if (kill(this_job->thread, SIGSTOP) < 0) {
+            return -1;
+        }
+        this_job->status = JOB_STATUS_PAUSED;
+    }
+    return 0;
+} // mmove to new file?
+
+int print_done_jobs() {
+    for (size_t i = 0; i < job_count; i++) {
+        if (job_history[i].status == JOB_STATUS_DONE) {
+            pretty_print_job(i);
+        }
+    }
+}
+
+int get_job_info(int64_t id) {}
+
+int list_jobs() {}
 
 int create_job(char *path, int8_t priority) {
 	pthread_attr_t tattr;
@@ -164,22 +205,22 @@ int create_job(char *path, int8_t priority) {
 
 
 int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
-
     if (cmd == CMD_SUSPEND) { // pause analysis
-        pause_thread(atoi(payload));
+        pause_job(atoi(payload));
     } else if (cmd == CMD_REMOVE) { // remove job
-        remove_analisys(atoi(payload));
+        remove_job(atoi(payload));
     } else if (cmd == CMD_RESUME) { // resume job
-        resume_analisys(atoi(payload));
+        resume_job(atoi(payload));
     } else if (cmd == CMD_PRINT) { // print report for 'done' tasks
         print_done_jobs();
     } else if (cmd == CMD_INFO) { // info about analysis
-        info_analisys(atoi(payload));
+        get_job_info(atoi(payload));
     } else if (cmd == CMD_LIST) { // list all tasks
         list_jobs();
     } else if (cmd == CMD_ADD) { // create job
-        create_job(payload + 1, atoi(payload[0]));
+        create_job(payload + 1, payload[0] - '0');
     }
+    return 1;
 }
 
 void *monitor_ipc(void *vserverfd) {
