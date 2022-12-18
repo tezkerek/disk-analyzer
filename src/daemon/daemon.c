@@ -26,18 +26,22 @@ struct Directory
     char *path;             
     struct Directory *parent;                  
     struct Directory *children[MAX_CHILDREN]; 
-    uint32_t bytes;        
-    uint32_t number_files;
-    uint32_t number_subdir; 
+    uint64_t bytes;        
+    uint64_t number_files;
+    uint64_t number_subdir; 
 };
 
-struct Pet_tree_node // este Misu <3
+struct Job // este Misu <3
 {
-    short status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
+    pthread_t thread;
+    int8_t status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
     struct Directory *root; // children directories
 };
 
-struct Pet_tree_node *jobs[MAX_THREADS];
+static uint64_t job_count = 0;
+struct Job job_history[MAX_THREADS];
+
+struct Job *jobs[MAX_THREADS];
 
 static uint64_t idSequence = 0;
 
@@ -275,20 +279,20 @@ int main() {
     signal(SIGPIPE, SIG_IGN);
 
     // In daemon now
-    //int serverfd = bind_socket();
+    int serverfd = bind_socket();
 
     // Start IPC monitoring thread
-    //pthread_t ipc_monitor_thread;
-    //if (pthread_create(&ipc_monitor_thread, NULL, monitor_ipc, &serverfd) != 0) {
-    //    perror("Failed to create IPC monitoring thread");
-    //    close(serverfd);
-    //    exit(EXIT_FAILURE);
-    //}
-    //pthread_join(ipc_monitor_thread, NULL);
+    pthread_t ipc_monitor_thread;
+    if (pthread_create(&ipc_monitor_thread, NULL, monitor_ipc, &serverfd) != 0) {
+       perror("Failed to create IPC monitoring thread");
+       close(serverfd);
+       exit(EXIT_FAILURE);
+    }
+    pthread_join(ipc_monitor_thread, NULL);
 
-    //close(serverfd);
-	int x = create_job("/home/adela/so_lab_mare", 2);
-	printf("%d\n", jobs[idSequence - 1]->root->bytes);
+    close(serverfd);
+	// int x = create_job("/home/adela/so_lab_mare", 2);
+	// printf("%d\n", jobs[idSequence - 1]->root->bytes);
 
     return EXIT_SUCCESS;
 }
