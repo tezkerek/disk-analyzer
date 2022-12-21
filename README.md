@@ -38,7 +38,7 @@
 | `CMD_RESUME`  | `8` bytes - id                                                |
 | `CMD_REMOVE`  | `8` bytes - id                                                |
 | `CMD_INFO`    | `8` bytes - id                                                |
-| `CMD_LIST`    | `0` bytes - id                                                |
+| `CMD_LIST`    | *nothing*                                                     |
 | `CMD_PRINT`   | `8` bytes - id                                                |
 
 ## Response structure
