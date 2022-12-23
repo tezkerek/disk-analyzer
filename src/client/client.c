@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include "client/arg_parse.h"
+#include <client/arg_parse.h>
 
 int connect_to_socket() {
     struct sockaddr_un address;

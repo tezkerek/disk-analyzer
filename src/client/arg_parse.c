@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "client/arg_parse.h"
+#include <client/arg_parse.h>
 
 
 struct return_struct* get_args(int argc, char **argv) {
@@ -16,7 +16,18 @@ struct return_struct* get_args(int argc, char **argv) {
     char p_value[10];
     int priority;
     p_value[0] = '2';
+    int valid_args = 0;
     int id;
+    char* help = "Usage: da [OPTION]... [DIR]...\n"
+    "Analyze the space occupied by the directory at [DIR]\n"
+    "-a, --add analyze a new directory path for disk usage\n"
+    "-p, --priority set priority for the new analysis (works only with -a argument)\n"
+    "-S, --suspend <id> suspend task with <id>\n"
+    "-R, --resume <id> resume task with <id>\n"
+    "-r, --remove <id> remove the analysis with the given <id>\n"
+    "-i, --info <id> print status about the analysis with <id> (pending, progress, done)\n"
+    "-l, --list list all analysis tasks, with their ID and the corresponding root path\n"
+    "-p, --print <id> print analysis report for those tasks that are done\n";
 
     while (1) {
         int this_option_optind = optind ? optind : 1;
@@ -36,6 +47,14 @@ struct return_struct* get_args(int argc, char **argv) {
         c = getopt_long(argc, argv, "a:p:S:R:r:i:lp:", long_options, &option_index);
         if (c == -1)
             break;
+        if ((valid_args == 1 && arg_a == 0 && arg_p == 0)
+            || (valid_args == 1 && arg_a == 1 && c != 'p')
+            || (valid_args == 1 && arg_p == 1 && c != 'a'))
+        {
+            printf("%s",help);
+            exit(EXIT_FAILURE);
+            break;
+        }
 
         switch (c) {
 
@@ -51,56 +70,45 @@ struct return_struct* get_args(int argc, char **argv) {
             break;
 
         case 'S':            // SUSPEND
-            id = atoi(optarg);
             ret->cmd = 2;
-            ret->payload = malloc(strlen(optarg));
-            strcpy(ret->payload, optarg);
-            ret->payload_len = strlen(optarg);
-            return ret;
             break;
 
         case 'R':            // RESUME
-            id = atoi(optarg);
             ret->cmd = 3;
-            ret->payload = malloc(strlen(optarg));
-            strcpy(ret->payload, optarg);
-            ret->payload_len = strlen(optarg);
-            return ret;
             break;
 
         case 'r':            // REMOVE
-            id = atoi(optarg);
             ret->cmd = 4;
-            ret->payload = malloc(strlen(optarg));
-            strcpy(ret->payload, optarg);
-            ret->payload_len = strlen(optarg);
-            return ret;
             break;
 
         case 'i':            // INFO
-            id = atoi(optarg);
             ret->cmd = 5;
-            ret->payload = malloc(strlen(optarg));
-            strcpy(ret->payload, optarg);
-            ret->payload_len = strlen(optarg);
-            return ret;
             break;
 
         case 'l':            // LIST
             ret->cmd = 6;
-            ret->payload = "";
-            ret->payload_len = 0;
-            return ret;
             break;
 
         case '?':
-            perror("Invalid argument");
+            printf("%s", help);
             exit(EXIT_FAILURE);
             break;
         }
+
+        if (ret->cmd == 6)
+        {
+            ret->payload = "";
+            ret->payload_len = 0;
+        }
+        else if (ret->cmd>=2 && ret->cmd <=5)
+        {
+            ret->payload = malloc(strlen(optarg));
+            ret->payload_len = strlen(optarg);
+        }
+        valid_args = 1;
     }
 
-    if (arg_a == 1) {
+    if (arg_a == 1) { //ADD
         ret->cmd = 1;
         ret->payload = malloc(strlen(path)+2);
         ret->payload[0] = ((int8_t)*p_value)-((int8_t)'0');
@@ -108,23 +116,19 @@ struct return_struct* get_args(int argc, char **argv) {
         strcpy(ret->payload, path);
         ret->payload--;
         ret->payload_len = strlen(path)+2;
-        return ret;
-        // ADD
-    } else if (arg_p == 1) {
+
+    } else if (arg_p == 1) { //PRINT
         ret->cmd = 7;
         ret->payload = malloc(strlen(p_value));
         strcpy(ret->payload, p_value);
         ret->payload_len = strlen(p_value);
-        return ret;
-        // PRINT
     }
 
     if (optind < argc) {
-        // printf("non-option ARGV-elements: ");
-        while (optind < argc)
-            printf("%s ", argv[optind++]);
-        // printf("\n");
+        printf("%s", help);
+        exit(EXIT_FAILURE);
     }
+    return ret;
 
     exit(EXIT_SUCCESS);
 }
