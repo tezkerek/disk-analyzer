@@ -55,7 +55,10 @@ int main(int argc, char *argv[]) {
 
     // Read command
     args_struct = get_args(argc, argv);
+    if (args_struct == NULL)
+        exit(EXIT_FAILURE);
     int8_t cmd = args_struct->cmd;
+
     // if (read(serverfd, &cmd, 1) < 0) {
     //     perror("Command");
     //     exit(EXIT_FAILURE);
