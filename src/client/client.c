@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     // }
 
     // Read payload
-    int64_t payload_len = args_struct->payload_len;
+    // int64_t payload_len = args_struct->payload_len;
     // if ((payload_len = read_payload_length(serverfd)) < 0) {
     //     perror("Payload length");
     //     exit(EXIT_FAILURE);
@@ -74,14 +74,18 @@ int main(int argc, char *argv[]) {
     //     free(payload);
     //     exit(EXIT_FAILURE);
     // }
-    char *payload;
-    payload = args_struct->payload;
-    payload[payload_len] = 0;
-    printf("command :%d, payload_len:%ld, payload:%s\n", cmd, payload_len, payload);
+    // char *payload;
+    // payload = args_struct->payload;
+    // payload[payload_len] = 0;
+    if (cmd == 1){
+        printf("command: %d, payload:%s\n", cmd, args_struct->uni.path);
+        free(args_struct->uni.path);
+    }
+    else
+    printf("command: %d, payload: %ld\n", cmd, args_struct->uni.job_id);
+ //   printf("Received %s\n", payload);
 
-    printf("Received %s\n", payload);
 
-    free(payload);
 
     close(serverfd);
 
