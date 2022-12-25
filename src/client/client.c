@@ -5,7 +5,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <client/arg_parse.h>
 
 int connect_to_socket() {
     struct sockaddr_un address;
@@ -35,64 +34,49 @@ int send_ipc_msg(int serverfd, int8_t cmd, char *payload, int64_t payload_len) {
     return written_bytes;
 }
 
-// struct return_struct *args_struct;
-
 int main(int argc, char *argv[]) {
     int serverfd = connect_to_socket();
 
-    //  char *text = argv[1];
+    char *text = argv[1];
+
     // Send command to daemon
-    // if (send_ipc_msg(serverfd, CMD_ADD, text, strlen(text)) < 0) {
-    //     perror("Failed send");
-    //     exit(EXIT_FAILURE);
-    // }
+    if (send_ipc_msg(serverfd, CMD_ADD, text, strlen(text)) < 0) {
+        perror("Failed send");
+        exit(EXIT_FAILURE);
+    }
 
     // Read reply
-    // if (!validate_ipc_msg(serverfd)) {
-    //     perror("Connection validation");
-    //     exit(EXIT_FAILURE);
-    // }
+    if (!validate_ipc_msg(serverfd)) {
+        perror("Connection validation");
+        exit(EXIT_FAILURE);
+    }
 
     // Read command
-    struct return_struct *ret;
-    ret = malloc(sizeof(struct return_struct));
-    if(get_args(argc, argv, ret)==-1)
+    int8_t cmd;
+    if (read(serverfd, &cmd, 1) < 0) {
+        perror("Command");
         exit(EXIT_FAILURE);
-    // if (args_struct == NULL)
-    //     exit(EXIT_FAILURE);
-    int8_t cmd = ret->cmd;
-
-    // if (read(serverfd, &cmd, 1) < 0) {
-    //     perror("Command");
-    //     exit(EXIT_FAILURE);
-    // }
+    }
 
     // Read payload
-    // int64_t payload_len = args_struct->payload_len;
-    // if ((payload_len = read_payload_length(serverfd)) < 0) {
-    //     perror("Payload length");
-    //     exit(EXIT_FAILURE);
-    // }
-
-    // char *payload = da_malloc((payload_len + 1) * sizeof(*payload));
-    // if (read(serverfd, payload, payload_len) < 0) {
-    //     perror("Payload read");
-    //     free(payload);
-    //     exit(EXIT_FAILURE);
-    // }
-    // char *payload;
-    // payload = args_struct->payload;
-    // payload[payload_len] = 0;
-    if (cmd == 1){
-        printf("command: %d, payload:%s, priority:%d\n", cmd, ret->uni.path.path, ret->uni.path.priority);
-        free(ret->uni.path.path);
+    int64_t payload_len;
+    if ((payload_len = read_payload_length(serverfd)) < 0) {
+        perror("Payload length");
+        exit(EXIT_FAILURE);
     }
-    else
-    printf("command: %d, payload: %ld\n", cmd, ret->uni.job_id);
- //   printf("Received %s\n", payload);
 
+    char *payload = da_malloc((payload_len + 1) * sizeof(*payload));
+    if (read(serverfd, payload, payload_len) < 0) {
+        perror("Payload read");
+        free(payload);
+        exit(EXIT_FAILURE);
+    }
+    payload[payload_len] = 0;
 
-    free(ret);
+    printf("Received %s\n", payload);
+
+    free(payload);
+
     close(serverfd);
 
     return EXIT_SUCCESS;

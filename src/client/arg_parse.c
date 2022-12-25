@@ -36,18 +36,18 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
                 return -1;
             }
             ret->cmd = CMD_ADD;
-            ret->uni.path.path = malloc(strlen(optarg) + 1);
-            strcpy(ret->uni.path.path, optarg);
-            ret->uni.path.priority = (int8_t)2;
+            ret->path = malloc(strlen(optarg) + 1);
+            strcpy(ret->path, optarg);
+            ret->priority = (int8_t)2;
             break;
 
         case 'p':
             if (ret->cmd == CMD_ADD){
-                ret->uni.path.priority = atoi(optarg);
+                ret->priority = atoi(optarg);
             }
             else if (ret->cmd == -1){
                 ret->cmd = CMD_PRINT;
-                ret->uni.job_id = atoi(optarg);
+                ret->job_id = atoi(optarg);
             }
             else{
                 printf("%s", help);
@@ -61,7 +61,7 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
                 return -1;
             }             
             ret->cmd = CMD_SUSPEND;
-            ret->uni.job_id = atoi(optarg);
+            ret->job_id = atoi(optarg);
             break;
 
         case 'R':
@@ -70,7 +70,7 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
                 return -1;
             } 
             ret->cmd = CMD_RESUME;
-            ret->uni.job_id = atoi(optarg);
+            ret->job_id = atoi(optarg);
             break;
 
         case 'r':
@@ -79,7 +79,7 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
                 return -1;
             } 
             ret->cmd = CMD_REMOVE;
-            ret->uni.job_id = atoi(optarg);
+            ret->job_id = atoi(optarg);
             break;
 
         case 'i':
@@ -88,7 +88,7 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
                 return -1;
             } 
             ret->cmd = CMD_INFO;
-            ret->uni.job_id = atoi(optarg);
+            ret->job_id = atoi(optarg);
             break;
 
         case 'l':
@@ -97,7 +97,7 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
                 return -1;
             } 
             ret->cmd = CMD_LIST;
-            ret->uni.job_id = -1;
+            ret->job_id = -1;
             break;
 
         case '?':
