@@ -84,8 +84,8 @@ int main(int argc, char *argv[]) {
     // payload = args_struct->payload;
     // payload[payload_len] = 0;
     if (cmd == 1){
-        printf("command: %d, payload:%s\n", cmd, ret->uni.path);
-        free(ret->uni.path);
+        printf("command: %d, payload:%s, priority:%d\n", cmd, ret->uni.path.path, ret->uni.path.priority);
+        free(ret->uni.path.path);
     }
     else
     printf("command: %d, payload: %ld\n", cmd, ret->uni.job_id);

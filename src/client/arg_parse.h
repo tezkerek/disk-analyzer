@@ -18,7 +18,10 @@ struct return_struct {
     int8_t cmd;
 	union struct_union{
 		int64_t job_id;
-		char* path;
+		struct p{
+			char* path;
+			int8_t priority;
+		}path;
 	} uni;
 };
 int get_args(int argc, char **argv, struct return_struct* ret);

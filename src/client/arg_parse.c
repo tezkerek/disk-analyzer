@@ -36,16 +36,14 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
                 return -1;
             }
             ret->cmd = CMD_ADD;
-            ret->uni.path = malloc(strlen(optarg) + 2);
-            ret->uni.path++;
-            strcpy(ret->uni.path, optarg);
-            ret->uni.path--;
-            ret->uni.path[0] = (int8_t)2;
+            ret->uni.path.path = malloc(strlen(optarg) + 1);
+            strcpy(ret->uni.path.path, optarg);
+            ret->uni.path.priority = (int8_t)2;
             break;
 
         case 'p':
             if (ret->cmd == CMD_ADD){
-                ret->uni.path[0] = ((int8_t)*optarg) - ((int8_t)'0');
+                ret->uni.path.priority = atoi(optarg);
             }
             else if (ret->cmd == -1){
                 ret->cmd = CMD_PRINT;
