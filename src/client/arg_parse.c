@@ -5,19 +5,10 @@
 #include <client/arg_parse.h>
 #include <common/ipc.h>
 
-struct return_struct *get_args(int argc, char **argv) {
-    struct return_struct *ret;
-    ret = malloc(sizeof(struct return_struct));
+void get_args(int argc, char **argv, struct return_struct* ret ) {
     int c;
     int digit_optind = 0;
-    int arg_a = 0;
-    int arg_p = 0;
-    char *path;
-    char p_value[10];
-    int priority;
-    p_value[0] = '2';
-    int valid_args = 0;
-    int id;
+    ret->cmd = -1;
 
     while (1) {
         int this_option_optind = optind ? optind : 1;
@@ -37,76 +28,99 @@ struct return_struct *get_args(int argc, char **argv) {
         c = getopt_long(argc, argv, "a:p:S:R:r:i:lp:", long_options, &option_index);
         if (c == -1)
             break;
-        if ((valid_args == 1 && arg_a == 0 && arg_p == 0) ||
-            (valid_args == 1 && arg_a == 1 && c != 'p') ||
-            (valid_args == 1 && arg_p == 1 && c != 'a')) {
-            printf("%s", help);
-            return NULL;
-            break;
-        }
 
         switch (c) {
 
         case 'a':
-            arg_a = 1;
-            path = malloc(strlen(optarg));
-            path = optarg;
+            if (ret->cmd != -1){
+                ret->cmd = -1;
+                return;
+            }
+            ret->cmd = CMD_ADD;
+            ret->uni.path = malloc(strlen(optarg) + 2);
+            ret->uni.path++;
+            strcpy(ret->uni.path, optarg);
+            ret->uni.path--;
+            ret->uni.path[0] = (int8_t)2;
             break;
 
         case 'p':
-            arg_p = 1;
-            strcpy(p_value, optarg);
+            if (ret->cmd == CMD_ADD){
+                ret->uni.path[0] = ((int8_t)*optarg) - ((int8_t)'0');
+            }
+            else if (ret->cmd == -1){
+                ret->cmd = CMD_PRINT;
+                ret->uni.job_id = atoi(optarg);
+            }
+            else{
+                printf("%s", help);
+                ret->cmd = -1;
+                return;
+            }
             break;
 
-        case 'S': 
+        case 'S':
+            if (ret->cmd != -1){
+                printf("%s", help);
+                ret->cmd = -1;
+                return;
+            }             
             ret->cmd = CMD_SUSPEND;
+            ret->uni.job_id = atoi(optarg);
             break;
 
-        case 'R': 
+        case 'R':
+            if (ret->cmd != -1){
+                printf("%s", help);
+                ret->cmd = -1;
+                return;
+            } 
             ret->cmd = CMD_RESUME;
+            ret->uni.job_id = atoi(optarg);
             break;
 
-        case 'r': 
+        case 'r':
+            if (ret->cmd != -1){
+                printf("%s", help);
+                ret->cmd = -1;
+                return;
+            } 
             ret->cmd = CMD_REMOVE;
+            ret->uni.job_id = atoi(optarg);
             break;
 
-        case 'i': 
+        case 'i':
+            if (ret->cmd != -1){
+                printf("%s", help);
+                ret->cmd = -1;
+                return;
+            } 
             ret->cmd = CMD_INFO;
+            ret->uni.job_id = atoi(optarg);
             break;
 
-        case 'l': 
+        case 'l':
+            if (ret->cmd != -1){
+                printf("%s", help);
+                ret->cmd = -1;
+                return;
+            } 
             ret->cmd = CMD_LIST;
+            ret->uni.job_id = -1;
             break;
 
         case '?':
             printf("%s", help);
-            return NULL;
+            ret->cmd = -1;
+            return;
             break;
         }
-
-        if (ret->cmd == CMD_LIST) {
-            ret->uni.job_id = -1;
-        } else if (ret->cmd >= 2 && ret->cmd <= 5) {
-            ret->uni.job_id = atoi(optarg);
-        }
-        valid_args = 1;
-    }
-
-    if (arg_a == 1) { 
-        ret->cmd = CMD_ADD;
-        ret->uni.path = malloc(strlen(path) + 2);
-        ret->uni.path[0] = ((int8_t)*p_value) - ((int8_t)'0');
-        ret->uni.path++;
-        strcpy(ret->uni.path, path);
-        ret->uni.path--;
-
-    } else if (arg_p == 1) { 
-        ret->cmd = CMD_PRINT;
-        ret->uni.job_id = atoi(p_value);
     }
 
     if (optind < argc) {
         printf("%s", help);
+        ret->cmd = -1;
+        return;
     }
-    return ret;
+//sad linux noises :(
 }

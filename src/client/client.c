@@ -35,7 +35,7 @@ int send_ipc_msg(int serverfd, int8_t cmd, char *payload, int64_t payload_len) {
     return written_bytes;
 }
 
-struct return_struct *args_struct;
+// struct return_struct *args_struct;
 
 int main(int argc, char *argv[]) {
     int serverfd = connect_to_socket();
@@ -54,10 +54,14 @@ int main(int argc, char *argv[]) {
     // }
 
     // Read command
-    args_struct = get_args(argc, argv);
-    if (args_struct == NULL)
+    struct return_struct *ret;
+    ret = malloc(sizeof(struct return_struct));
+    get_args(argc, argv, ret);
+    // if (args_struct == NULL)
+    //     exit(EXIT_FAILURE);
+    if (ret->cmd == -1)
         exit(EXIT_FAILURE);
-    int8_t cmd = args_struct->cmd;
+    int8_t cmd = ret->cmd;
 
     // if (read(serverfd, &cmd, 1) < 0) {
     //     perror("Command");
@@ -81,15 +85,15 @@ int main(int argc, char *argv[]) {
     // payload = args_struct->payload;
     // payload[payload_len] = 0;
     if (cmd == 1){
-        printf("command: %d, payload:%s\n", cmd, args_struct->uni.path);
-        free(args_struct->uni.path);
+        printf("command: %d, payload:%s\n", cmd, ret->uni.path);
+        free(ret->uni.path);
     }
     else
-    printf("command: %d, payload: %ld\n", cmd, args_struct->uni.job_id);
+    printf("command: %d, payload: %ld\n", cmd, ret->uni.job_id);
  //   printf("Received %s\n", payload);
 
 
-
+    free(ret);
     close(serverfd);
 
     return EXIT_SUCCESS;

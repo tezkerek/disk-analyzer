@@ -22,6 +22,6 @@ struct return_struct {
 	} uni;
 };
 
-struct return_struct *get_args(int argc, char **argv);
+void get_args(int argc, char **argv, struct return_struct* ret);
 
 #endif
