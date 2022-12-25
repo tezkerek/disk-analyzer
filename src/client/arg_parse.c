@@ -5,7 +5,7 @@
 #include <client/arg_parse.h>
 #include <common/ipc.h>
 
-void get_args(int argc, char **argv, struct return_struct* ret ) {
+int get_args(int argc, char **argv, struct return_struct* ret ) {
     int c;
     int digit_optind = 0;
     ret->cmd = -1;
@@ -33,8 +33,7 @@ void get_args(int argc, char **argv, struct return_struct* ret ) {
 
         case 'a':
             if (ret->cmd != -1){
-                ret->cmd = -1;
-                return;
+                return -1;
             }
             ret->cmd = CMD_ADD;
             ret->uni.path = malloc(strlen(optarg) + 2);
@@ -54,16 +53,14 @@ void get_args(int argc, char **argv, struct return_struct* ret ) {
             }
             else{
                 printf("%s", help);
-                ret->cmd = -1;
-                return;
+                return -1;
             }
             break;
 
         case 'S':
             if (ret->cmd != -1){
                 printf("%s", help);
-                ret->cmd = -1;
-                return;
+                return -1;
             }             
             ret->cmd = CMD_SUSPEND;
             ret->uni.job_id = atoi(optarg);
@@ -72,8 +69,7 @@ void get_args(int argc, char **argv, struct return_struct* ret ) {
         case 'R':
             if (ret->cmd != -1){
                 printf("%s", help);
-                ret->cmd = -1;
-                return;
+                return -1;
             } 
             ret->cmd = CMD_RESUME;
             ret->uni.job_id = atoi(optarg);
@@ -82,8 +78,7 @@ void get_args(int argc, char **argv, struct return_struct* ret ) {
         case 'r':
             if (ret->cmd != -1){
                 printf("%s", help);
-                ret->cmd = -1;
-                return;
+                return -1;
             } 
             ret->cmd = CMD_REMOVE;
             ret->uni.job_id = atoi(optarg);
@@ -92,8 +87,7 @@ void get_args(int argc, char **argv, struct return_struct* ret ) {
         case 'i':
             if (ret->cmd != -1){
                 printf("%s", help);
-                ret->cmd = -1;
-                return;
+                return -1;
             } 
             ret->cmd = CMD_INFO;
             ret->uni.job_id = atoi(optarg);
@@ -102,8 +96,7 @@ void get_args(int argc, char **argv, struct return_struct* ret ) {
         case 'l':
             if (ret->cmd != -1){
                 printf("%s", help);
-                ret->cmd = -1;
-                return;
+                return -1;
             } 
             ret->cmd = CMD_LIST;
             ret->uni.job_id = -1;
@@ -111,16 +104,15 @@ void get_args(int argc, char **argv, struct return_struct* ret ) {
 
         case '?':
             printf("%s", help);
-            ret->cmd = -1;
-            return;
+            return -1;
             break;
         }
     }
 
     if (optind < argc) {
         printf("%s", help);
-        ret->cmd = -1;
-        return;
+        return -1; 
     }
+    return 0;
 //sad linux noises :(
 }

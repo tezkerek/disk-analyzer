@@ -56,11 +56,10 @@ int main(int argc, char *argv[]) {
     // Read command
     struct return_struct *ret;
     ret = malloc(sizeof(struct return_struct));
-    get_args(argc, argv, ret);
+    if(get_args(argc, argv, ret)==-1)
+        exit(EXIT_FAILURE);
     // if (args_struct == NULL)
     //     exit(EXIT_FAILURE);
-    if (ret->cmd == -1)
-        exit(EXIT_FAILURE);
     int8_t cmd = ret->cmd;
 
     // if (read(serverfd, &cmd, 1) < 0) {

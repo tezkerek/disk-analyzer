@@ -21,7 +21,6 @@ struct return_struct {
 		char* path;
 	} uni;
 };
-
-void get_args(int argc, char **argv, struct return_struct* ret);
+int get_args(int argc, char **argv, struct return_struct* ret);
 
 #endif
