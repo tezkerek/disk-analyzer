@@ -11,7 +11,6 @@ int get_args(int argc, char **argv, struct da_args *ret) {
     ret->cmd = -1;
 
     while (1) {
-        int this_option_optind = optind ? optind : 1;
         int option_index = 0;
         static struct option long_options[] = {
             {"add",      required_argument, 0, 'a'},
