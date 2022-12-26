@@ -46,7 +46,7 @@ struct Job *jobs[MAX_THREADS];
 
 struct Directory *last[MAX_THREADS];
 
-static int build_arb (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+static int build_tree (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
 
 	if (!strcmp(fpath, last[job_count]->path)) return 0;
 
@@ -62,7 +62,6 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 		struct Directory *current = malloc(sizeof(*current));
 		current->parent = malloc(sizeof(*current->parent));
 		current->parent = last[job_count];
-		last[job_count]->number_subdir++;
 		last[job_count]->bytes += sb->st_size;
 		current->number_subdir = 0;
 		current->path = malloc(strlen(fpath) * sizeof(char) + 1);
@@ -70,6 +69,7 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 		current->bytes = 0;
 		current->number_files = 0;
 		last[job_count]->children[last[job_count]->number_subdir] = current;
+		last[job_count]->number_subdir++;
 		last[job_count] = current;
 	}
 	else {
@@ -88,12 +88,11 @@ void *traverse (void *path) {
 	struct Directory *root = malloc(sizeof(*root));
 	root->path = malloc(strlen(p) * sizeof(char) + 1);
 	strcpy(root->path, p);
-	root->parent = malloc(sizeof(*root->parent));
 	root->parent = NULL;
 	root->bytes = root->number_files = root->number_subdir = 0;
 	last[job_count] = root;
 
-	if (nftw(p, build_arb, nopenfd, FTW_PHYS) == -1) {
+	if (nftw(p, build_tree, nopenfd, FTW_PHYS) == -1) {
 		perror("nsfw");   // modif
 		return errno;
 	}
