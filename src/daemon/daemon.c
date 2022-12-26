@@ -24,8 +24,7 @@
 #define JOB_STATUS_PAUSED      2
 #define JOB_STATUS_DONE        3
 
-struct Directory 
-{
+struct Directory {
     char *path;             
     struct Directory *parent;                  
     struct Directory *children[MAX_CHILDREN]; 
@@ -34,8 +33,7 @@ struct Directory
     uint64_t number_subdir; 
 };
 
-struct Job // este Misu <3
-{
+struct Job { 
     pthread_t thread;
     int8_t status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
     struct Directory *root; // children directories
@@ -46,41 +44,37 @@ struct Job job_history[MAX_THREADS];
 
 struct Job *jobs[MAX_THREADS];
 
-static uint64_t idSequence = 0;
-
-pthread_t threads_arr[MAX_THREADS]; 
-
 struct Directory *last[MAX_THREADS];
 
 static int build_arb (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
 
-	if (!strcmp(fpath, last[idSequence]->path)) return 0;
-	
+	if (!strcmp(fpath, last[job_count]->path)) return 0;
+
 	char *aux = malloc(strlen(fpath) * sizeof(char) + 1);
 	strcpy(aux, fpath);
 	strcpy(aux, dirname(aux));
-	while (strcmp(aux, last[idSequence]->path)) {
-		last[idSequence]->parent->bytes += last[idSequence]->bytes;
-		last[idSequence] = last[idSequence]->parent;
+	while (strcmp(aux, last[job_count]->path)) {
+		last[job_count]->parent->bytes += last[job_count]->bytes;
+		last[job_count] = last[job_count]->parent;
 	}
-	
+
 	if (typeflag == FTW_D) {
 		struct Directory *current = malloc(sizeof(*current));
 		current->parent = malloc(sizeof(*current->parent));
-		current->parent = last[idSequence];
-		last[idSequence]->number_subdir++;
-		last[idSequence]->bytes += sb->st_size;
+		current->parent = last[job_count];
+		last[job_count]->number_subdir++;
+		last[job_count]->bytes += sb->st_size;
 		current->number_subdir = 0;
 		current->path = malloc(strlen(fpath) * sizeof(char) + 1);
 		strcpy(current->path, fpath); 
 		current->bytes = 0;
 		current->number_files = 0;	
-		last[idSequence]->children[last[idSequence]->number_subdir] = current;
-		last[idSequence] = current;
+		last[job_count]->children[last[job_count]->number_subdir] = current;
+		last[job_count] = current;
 	}
 	else {
-		last[idSequence]->number_files++;
-		last[idSequence]->bytes += sb->st_size;
+		last[job_count]->number_files++;
+		last[job_count]->bytes += sb->st_size;
 	}
 
 	return 0;
@@ -97,16 +91,16 @@ void *traverse (void *path) {
 	root->parent = malloc(sizeof(*root->parent));
 	root->parent = NULL;
 	root->bytes = root->number_files = root->number_subdir = 0;        
-	last[idSequence] = root;
+	last[job_count] = root;
 	
 	if (nftw(p, build_arb, nopenfd, FTW_PHYS) == -1) {
 		perror("nsfw");   // modif
 		return errno;
 	}
 
-	while (last[idSequence]->parent != NULL) {
-		last[idSequence]->parent->bytes += last[idSequence]->bytes;
-		last[idSequence] = last[idSequence]->parent;
+	while (last[job_count]->parent != NULL) {
+		last[job_count]->parent->bytes += last[job_count]->bytes;
+		last[job_count] = last[job_count]->parent;
 	}
 
 	return 0;
@@ -188,23 +182,23 @@ int create_job(char *path, int8_t priority) {
 	
 	ret = pthread_attr_setschedparam (&tattr, &param);
 
-	jobs[idSequence] = malloc(sizeof(jobs[idSequence]));
-	jobs[idSequence]->status = JOB_STATUS_IN_PROGRESS;
-	ret = pthread_create (&threads_arr[idSequence], NULL, traverse, (void*)path);
+	jobs[job_count] = malloc(sizeof(jobs[job_count]));
+	jobs[job_count]->status = JOB_STATUS_IN_PROGRESS;
+	ret = pthread_create (&jobs[job_count]->thread, NULL, traverse, (void*)path);
 	
 	if (ret) {
 		perror("Error creating thread");
 		exit(EXIT_FAILURE);
 	}
 
-	pthread_join(threads_arr[idSequence], NULL);
+	pthread_join(jobs[job_count]->thread, NULL);
 	
-	jobs[idSequence]->root = malloc(sizeof(*jobs[idSequence]->root));
-	jobs[idSequence]->root = last[idSequence];
+	jobs[job_count]->root = malloc(sizeof(*jobs[job_count]->root));
+	jobs[job_count]->root = last[job_count];
 
-	jobs[idSequence]->status = JOB_STATUS_DONE;
+	jobs[job_count]->status = JOB_STATUS_DONE;
 
-	++idSequence;
+	++job_count;
 	
 	return 0;
 }
@@ -316,7 +310,7 @@ int main() {
 
     close(serverfd);
 	// int x = create_job("/home/adela/so_lab_mare", 2);
-	// printf("%d\n", jobs[idSequence - 1]->root->bytes);
+	// printf("%d\n", jobs[job_count - 1]->root->bytes);
 
     return EXIT_SUCCESS;
 }
