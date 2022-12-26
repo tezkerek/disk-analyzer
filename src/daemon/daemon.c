@@ -22,15 +22,15 @@
 #define MAX_CHILDREN 59
 
 struct Directory {
-    char *path;             
-    struct Directory *parent;                  
-    struct Directory *children[MAX_CHILDREN]; 
-    uint64_t bytes;        
+    char *path;
+    struct Directory *parent;
+    struct Directory *children[MAX_CHILDREN];
+    uint64_t bytes;
     uint64_t number_files;
-    uint64_t number_subdir; 
+    uint64_t number_subdir;
 };
 
-struct Job { 
+struct Job {
     pthread_t thread;
     int8_t status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
     struct Directory *root; // children directories
@@ -63,9 +63,9 @@ static int build_arb (const char* fpath, const struct stat *sb, int typeflag, st
 		last[job_count]->bytes += sb->st_size;
 		current->number_subdir = 0;
 		current->path = malloc(strlen(fpath) * sizeof(char) + 1);
-		strcpy(current->path, fpath); 
+		strcpy(current->path, fpath);
 		current->bytes = 0;
-		current->number_files = 0;	
+		current->number_files = 0;
 		last[job_count]->children[last[job_count]->number_subdir] = current;
 		last[job_count] = current;
 	}
@@ -81,15 +81,15 @@ void *traverse (void *path) {
 
 	int nopenfd = 20;  // ne gandim cat vrem sa punem
 	char *p = path;
-	
+
 	struct Directory *root = malloc(sizeof(*root));
 	root->path = malloc(strlen(p) * sizeof(char) + 1);
 	strcpy(root->path, p);
 	root->parent = malloc(sizeof(*root->parent));
 	root->parent = NULL;
-	root->bytes = root->number_files = root->number_subdir = 0;        
+	root->bytes = root->number_files = root->number_subdir = 0;
 	last[job_count] = root;
-	
+
 	if (nftw(p, build_arb, nopenfd, FTW_PHYS) == -1) {
 		perror("nsfw");   // modif
 		return errno;
@@ -175,27 +175,27 @@ int create_job(char *path, int8_t priority) {
 	ret = pthread_attr_getschedparam (&tattr, &param);
 
 	param.sched_priority = priority;
-	
+
 	ret = pthread_attr_setschedparam (&tattr, &param);
 
 	jobs[job_count] = malloc(sizeof(jobs[job_count]));
 	jobs[job_count]->status = JOB_STATUS_IN_PROGRESS;
 	ret = pthread_create (&jobs[job_count]->thread, NULL, traverse, (void*)path);
-	
+
 	if (ret) {
 		perror("Error creating thread");
 		exit(EXIT_FAILURE);
 	}
 
 	pthread_join(jobs[job_count]->thread, NULL);
-	
+
 	jobs[job_count]->root = malloc(sizeof(*jobs[job_count]->root));
 	jobs[job_count]->root = last[job_count];
 
 	jobs[job_count]->status = JOB_STATUS_DONE;
 
 	++job_count;
-	
+
 	return 0;
 }
 
