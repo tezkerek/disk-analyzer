@@ -13,17 +13,17 @@ static char *help =
     "-i, --info <id> print status about the analysis with <id> (pending, progress, done)\n"
     "-l, --list list all analysis tasks, with their ID and the corresponding root path\n"
     "-p, --print <id> print analysis report for those tasks that are done\n";
-	
+    
 
 struct da_args {
     int8_t cmd;
-	union {
-		int64_t job_id;
-		struct {
-			char* path;
-			int8_t priority;
-		};
-	};
+    union {
+        int64_t job_id;
+        struct {
+            char* path;
+            int8_t priority;
+        };
+    };
 };
 int get_args(int argc, char **argv, struct da_args* ret);
 
