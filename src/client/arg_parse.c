@@ -5,7 +5,7 @@
 #include <client/arg_parse.h>
 #include <common/ipc.h>
 
-int get_args(int argc, char **argv, struct return_struct* ret ) {
+int get_args(int argc, char **argv, struct da_args *ret) {
     int c;
     int digit_optind = 0;
     ret->cmd = -1;
@@ -32,70 +32,68 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
         switch (c) {
 
         case 'a':
-            if (ret->cmd != -1){
+            if (ret->cmd != -1) {
                 return -1;
             }
             ret->cmd = CMD_ADD;
             ret->path = malloc(strlen(optarg) + 1);
-            strcpy(ret->path, optarg);
-            ret->priority = (int8_t)2;
+            strncpy(ret->path, optarg, strlen(optarg));
+            ret->priority = DEFAULT_PRIORITY;
             break;
 
         case 'p':
-            if (ret->cmd == CMD_ADD){
-                ret->priority = atoi(optarg);
-            }
-            else if (ret->cmd == -1){
+            if (ret->cmd == CMD_ADD) {
+                ret->priority = atoll(optarg);
+            } else if (ret->cmd == -1) {
                 ret->cmd = CMD_PRINT;
-                ret->job_id = atoi(optarg);
-            }
-            else{
+                ret->job_id = atoll(optarg);
+            } else {
                 printf("%s", help);
                 return -1;
             }
             break;
 
         case 'S':
-            if (ret->cmd != -1){
+            if (ret->cmd != -1) {
                 printf("%s", help);
                 return -1;
-            }             
+            }
             ret->cmd = CMD_SUSPEND;
-            ret->job_id = atoi(optarg);
+            ret->job_id = atoll(optarg);
             break;
 
         case 'R':
-            if (ret->cmd != -1){
+            if (ret->cmd != -1) {
                 printf("%s", help);
                 return -1;
-            } 
+            }
             ret->cmd = CMD_RESUME;
-            ret->job_id = atoi(optarg);
+            ret->job_id = atoll(optarg);
             break;
 
         case 'r':
-            if (ret->cmd != -1){
+            if (ret->cmd != -1) {
                 printf("%s", help);
                 return -1;
-            } 
+            }
             ret->cmd = CMD_REMOVE;
-            ret->job_id = atoi(optarg);
+            ret->job_id = atoll(optarg);
             break;
 
         case 'i':
-            if (ret->cmd != -1){
+            if (ret->cmd != -1) {
                 printf("%s", help);
                 return -1;
-            } 
+            }
             ret->cmd = CMD_INFO;
-            ret->job_id = atoi(optarg);
+            ret->job_id = atoll(optarg);
             break;
 
         case 'l':
-            if (ret->cmd != -1){
+            if (ret->cmd != -1) {
                 printf("%s", help);
                 return -1;
-            } 
+            }
             ret->cmd = CMD_LIST;
             ret->job_id = -1;
             break;
@@ -109,8 +107,7 @@ int get_args(int argc, char **argv, struct return_struct* ret ) {
 
     if (optind < argc) {
         printf("%s", help);
-        return -1; 
+        return -1;
     }
     return 0;
-//sad linux noises :(
 }

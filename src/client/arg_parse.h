@@ -1,5 +1,6 @@
 #ifndef ARG_PARSE_HEADER
 #define ARG_PARSE_HEADER
+#define DEFAULT_PRIORITY 2
 
 static char *help =
     "Usage: da [OPTION]... [DIR]...\n"
@@ -14,7 +15,7 @@ static char *help =
     "-p, --print <id> print analysis report for those tasks that are done\n";
 	
 
-struct return_struct {
+struct da_args {
     int8_t cmd;
 	union {
 		int64_t job_id;
@@ -24,6 +25,6 @@ struct return_struct {
 		};
 	};
 };
-int get_args(int argc, char **argv, struct return_struct* ret);
+int get_args(int argc, char **argv, struct da_args* ret);
 
 #endif
