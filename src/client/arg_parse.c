@@ -7,7 +7,6 @@
 
 int get_args(int argc, char **argv, struct da_args *ret) {
     int c;
-    int digit_optind = 0;
     ret->cmd = -1;
 
     while (1) {
@@ -35,14 +34,15 @@ int get_args(int argc, char **argv, struct da_args *ret) {
                 return -1;
             }
             ret->cmd = CMD_ADD;
-            ret->path = malloc(strlen(optarg) + 1);
-            strncpy(ret->path, optarg, strlen(optarg));
+            int const path_len = strlen(optarg);
+            ret->path = malloc(path_len+ 1);
+            strncpy(ret->path, optarg, path_len);
             ret->priority = DEFAULT_PRIORITY;
             break;
 
         case 'p':
             if (ret->cmd == CMD_ADD) {
-                ret->priority = atoll(optarg);
+                ret->priority = atoi(optarg);
             } else if (ret->cmd == -1) {
                 ret->cmd = CMD_PRINT;
                 ret->job_id = atoll(optarg);
