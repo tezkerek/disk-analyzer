@@ -4,6 +4,7 @@
 #include <string.h>
 #include <client/arg_parse.h>
 #include <common/ipc.h>
+#include <common/utils.h>
 
 int get_args(int argc, char **argv, struct da_args *ret) {
     int c;
@@ -35,7 +36,7 @@ int get_args(int argc, char **argv, struct da_args *ret) {
             }
             ret->cmd = CMD_ADD;
             int const path_len = strlen(optarg);
-            ret->path = malloc(path_len + 1);
+            ret->path = da_malloc(path_len + 1);
             strncpy(ret->path, optarg, path_len);
             ret->priority = DEFAULT_PRIORITY;
             break;
