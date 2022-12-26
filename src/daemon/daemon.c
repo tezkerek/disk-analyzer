@@ -189,7 +189,7 @@ int create_job(char *path, int8_t priority) {
 	ret = pthread_attr_setschedparam (&tattr, &param);
 
 	jobs[idSequence] = malloc(sizeof(jobs[idSequence]));
-	jobs[idSequence]->status = 0; // in progress
+	jobs[idSequence]->status = JOB_STATUS_IN_PROGRESS;
 	ret = pthread_create (&threads_arr[idSequence], NULL, traverse, (void*)path);
 	
 	if (ret) {
@@ -201,6 +201,8 @@ int create_job(char *path, int8_t priority) {
 	
 	jobs[idSequence]->root = malloc(sizeof(*jobs[idSequence]->root));
 	jobs[idSequence]->root = last[idSequence];
+
+	jobs[idSequence]->status = JOB_STATUS_DONE;
 
 	++idSequence;
 	
