@@ -41,14 +41,14 @@ int parse_args(int argc, char **argv, struct da_args *result) {
             realpath(optarg, result->path);
             break;
 
-        case 'p':
+        case 'p': {
             int8_t priority = atoi(optarg);
             if (priority < 1 || priority > 3) {
                 fputs("Priority must be between 1 and 3\n", stderr);
                 return -1;
             }
             result->priority = priority;
-            break;
+        } break;
 
         case 'P':
             if (result->cmd != -1) {
