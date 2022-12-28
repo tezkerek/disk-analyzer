@@ -60,7 +60,6 @@ static int build_tree (const char* fpath, const struct stat *sb, int typeflag, s
 
 	if (typeflag == FTW_D) {
 		struct Directory *current = malloc(sizeof(*current));
-		current->parent = malloc(sizeof(*current->parent));
 		current->parent = last[job_count];
 		last[job_count]->bytes += sb->st_size;
 		current->number_subdir = 0;
