@@ -188,7 +188,6 @@ int create_job(char *path, int8_t priority) {
 
 	pthread_join(jobs[job_count]->thread, NULL);
 
-	jobs[job_count]->root = malloc(sizeof(*jobs[job_count]->root));
 	jobs[job_count]->root = last[job_count];
 
 	jobs[job_count]->status = JOB_STATUS_DONE;
