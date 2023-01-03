@@ -7,3 +7,5 @@ AlignArrayOfStructures: Left
 AllowAllArgumentsOnNextLine: false
 BinPackArguments: false
 BinPackParameters: false
+
+BreakStringLiterals: false
