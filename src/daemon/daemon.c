@@ -99,25 +99,60 @@ int get_job_info(int64_t id) {}
 
 int list_jobs() {}
 
-int create_job(char *path, int8_t priority) {}
+/**
+ * Creates a job and returns its id through the job_id argument.
+ * Returns 0 for success or an error code otherwise.
+ * Errors: -1 if path does not exist
+ *         -2 if path is part of an existing job (the returned job_id)
+ */
+int create_job(const char *path, int8_t priority, int64_t *job_id) {}
 
-int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
-    if (cmd == CMD_SUSPEND) { // pause analysis
-        pause_job(atoi(payload));
-    } else if (cmd == CMD_REMOVE) { // remove job
-        remove_job(atoi(payload));
-    } else if (cmd == CMD_RESUME) { // resume job
-        resume_job(atoi(payload));
-    } else if (cmd == CMD_PRINT) { // print report for 'done' tasks
+int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
+    // TODO: Handle reply, errors
+    if (cmd == CMD_ADD) {
+        if (payload->len <= 0) {
+            // TODO: Generic bad input error
+            return -255;
+        }
+
+        int8_t priority = payload->bytes[0];
+        // Read path
+        char *path = da_malloc((payload->len + 1) * sizeof(char));
+        strncpy(path, payload->bytes, payload->len);
+        // Null terminate
+        path[payload->len] = 0;
+
+        int64_t job_id;
+        int8_t code = create_job(path, priority, &job_id);
+
+        free(path);
+    } else if (cmd == CMD_PRINT) {
         print_done_jobs();
-    } else if (cmd == CMD_INFO) { // info about analysis
-        get_job_info(atoi(payload));
-    } else if (cmd == CMD_LIST) { // list all tasks
+    } else if (cmd == CMD_LIST) {
         list_jobs();
-    } else if (cmd == CMD_ADD) { // create job
-        create_job(payload + 1, payload[0] - '0');
+    } else {
+        int64_t job_id;
+        if (payload->len != sizeof(job_id)) {
+            return -255;
+        }
+
+        // Read job_id
+        memcpy(&job_id, payload->bytes, sizeof(job_id));
+
+        if (cmd == CMD_SUSPEND) {
+            pause_job(job_id);
+        } else if (cmd == CMD_REMOVE) {
+            remove_job(job_id);
+        } else if (cmd == CMD_RESUME) {
+            resume_job(job_id);
+        } else if (cmd == CMD_INFO) {
+            get_job_info(job_id);
+        } else {
+            return -1;
+        }
     }
-    return 1;
+
+    return 0;
 }
 
 void *monitor_ipc(void *vserverfd) {
@@ -141,43 +176,15 @@ void *monitor_ipc(void *vserverfd) {
             continue;
         }
 
-        // Read payload length
-        int64_t payload_len;
-        if ((payload_len = read_payload_length(clientfd)) < 0) {
-            continue;
-        }
-
         // Read payload
-        char *payload = da_malloc((payload_len + 1) * sizeof(*payload));
-        if (read(clientfd, payload, payload_len) < 0) {
-            free(payload);
+        struct ByteArray payload;
+        if (read_ipc_payload(clientfd, &payload) < 0) {
             continue;
         }
-        // Null terminate
-        payload[payload_len] = 0;
 
-        handle_ipc_cmd(cmd, payload, payload_len);
+        handle_ipc_cmd(cmd, &payload);
 
-        // Build reply payload
-        int64_t reply_len = payload_len + 6;
-        char *reply = da_malloc(reply_len * sizeof(*reply));
-        strncpy(reply, "Hello ", sizeof("Hello "));
-        strncpy(reply + sizeof("Hello ") - 1, payload, payload_len);
-
-        free(payload);
-
-        // Build IPC message
-        int64_t msg_len = min_ipc_msg_len(reply_len);
-        char *msg = da_malloc(msg_len * sizeof(*msg));
-        build_ipc_msg(cmd, reply, reply_len, msg, msg_len);
-
-        int written_bytes;
-        if ((written_bytes = write(clientfd, msg, msg_len)) < 0) {
-            perror("Failed to write reply");
-        }
-
-        free(reply);
-        free(msg);
+        bytearray_destroy(&payload);
     }
 }
 
@@ -192,6 +199,9 @@ int main() {
     /*     // Forked successfully */
     /*     return 0; */
     /* } */
+
+    // Prevent SIGPIPE from stopping the daemon
+    signal(SIGPIPE, SIG_IGN);
 
     // In daemon now
     int serverfd = bind_socket();

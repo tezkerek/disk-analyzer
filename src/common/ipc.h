@@ -1,6 +1,7 @@
 #ifndef IPC_HEADER
 #define IPC_HEADER
 
+#include <common/utils.h>
 #include <stdint.h>
 #include <sys/un.h>
 
@@ -27,24 +28,18 @@ int init_socket(struct sockaddr_un *address);
 int validate_ipc_msg(int fd);
 
 /**
- * Returns the length of the payload or -1 for failure.
+ * Reads a payload from the given fd.
+ * Returns 0 for success or -1 for failure.
+ * Allocates `bytes` if successful, remember to free it.
  */
-int64_t read_payload_length(int fd);
+int read_ipc_payload(int fd, struct ByteArray *payload);
 
 /**
- * Returns the required IPC message buffer size for a payload of the given
- * length.
- */
-int64_t min_ipc_msg_len(int64_t payload_len);
-
-/**
- * Builds a message with the given command and payload in msgbuf.
- * The size of msgbuf must be at least sizeof_ipc_msg(payload_len).
+ * Builds a message with the given command and payload in msg.
+ * Remember to call `bytearray_destroy` on msg.
  */
 void build_ipc_msg(int8_t cmd,
-                   char *payload,
-                   int64_t payload_len,
-                   char *msgbuf,
-                   int64_t msgbuf_len);
+                   const struct ByteArray *payload,
+                   struct ByteArray *msg);
 
 #endif

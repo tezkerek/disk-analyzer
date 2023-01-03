@@ -1,7 +1,9 @@
+#include <client/arg_parse.h>
 #include <common/ipc.h>
 #include <common/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -18,64 +20,58 @@ int connect_to_socket() {
     return fd;
 }
 
-int send_ipc_msg(int serverfd, int8_t cmd, char *payload, int64_t payload_len) {
-    int64_t msg_len = min_ipc_msg_len(payload_len);
-    char *msg = da_malloc(msg_len * sizeof(*msg));
+int send_ipc_msg(int serverfd, int8_t cmd, const struct ByteArray *payload) {
+    struct ByteArray ipc_msg;
 
-    build_ipc_msg(cmd, payload, payload_len, msg, msg_len);
+    build_ipc_msg(cmd, payload, &ipc_msg);
 
     int written_bytes;
-    if ((written_bytes = write(serverfd, msg, msg_len)) < 0) {
-        free(msg);
+    if ((written_bytes = write(serverfd, ipc_msg.bytes, ipc_msg.len)) < 0) {
+        bytearray_destroy(&ipc_msg);
         return -1;
     }
 
-    free(msg);
+    bytearray_destroy(&ipc_msg);
     return written_bytes;
 }
 
 int main(int argc, char *argv[]) {
+    struct da_args args;
+
+    if (parse_args(argc, argv, &args) < 0) {
+        fputs("Failed to parse args\n", stderr);
+        fputs(DA_USAGE_HELP, stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    struct ByteArray payload;
+
+    if (args.cmd == CMD_ADD) {
+        // Payload is "<priority><path>"
+        bytearray_init(&payload, strlen(args.path) + 1);
+
+        payload.bytes[0] = args.priority;
+        strncpy(payload.bytes + 1, args.path, payload.len - 1);
+        free(args.path);
+    } else if (args.cmd == CMD_LIST) {
+        // No payload
+        payload.len = 0;
+        payload.bytes = NULL;
+    } else {
+        // Payload is the job id
+        bytearray_init(&payload, sizeof(args.job_id));
+        memcpy(payload.bytes, &args.job_id, payload.len);
+    }
+
     int serverfd = connect_to_socket();
 
-    char *text = argv[1];
-
     // Send command to daemon
-    if (send_ipc_msg(serverfd, CMD_ADD, text, strlen(text)) < 0) {
+    if (send_ipc_msg(serverfd, args.cmd, &payload) < 0) {
         perror("Failed send");
         exit(EXIT_FAILURE);
     }
 
-    // Read reply
-    if (!validate_ipc_msg(serverfd)) {
-        perror("Connection validation");
-        exit(EXIT_FAILURE);
-    }
-
-    // Read command
-    int8_t cmd;
-    if (read(serverfd, &cmd, 1) < 0) {
-        perror("Command");
-        exit(EXIT_FAILURE);
-    }
-
-    // Read payload
-    int64_t payload_len;
-    if ((payload_len = read_payload_length(serverfd)) < 0) {
-        perror("Payload length");
-        exit(EXIT_FAILURE);
-    }
-
-    char *payload = da_malloc((payload_len + 1) * sizeof(*payload));
-    if (read(serverfd, payload, payload_len) < 0) {
-        perror("Payload read");
-        free(payload);
-        exit(EXIT_FAILURE);
-    }
-    payload[payload_len] = 0;
-
-    printf("Received %s\n", payload);
-
-    free(payload);
+    bytearray_destroy(&payload);
 
     close(serverfd);
 

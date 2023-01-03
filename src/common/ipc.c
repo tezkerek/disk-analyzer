@@ -35,32 +35,39 @@ int validate_ipc_msg(int fd) {
     return strcmp(prefix, IPC_MAGIC) == 0;
 }
 
-int64_t read_payload_length(int fd) {
+int read_ipc_payload(int fd, struct ByteArray *payload) {
     int64_t payload_len;
-
     if (read(fd, &payload_len, sizeof(payload_len)) < 0) {
         perror("Payload length read");
         return -1;
     }
 
-    return payload_len;
-}
+    bytearray_init(payload, payload_len);
+    if (read(fd, payload->bytes, payload->len) < 0) {
+        bytearray_destroy(payload);
+        return -1;
+    }
 
-int64_t min_ipc_msg_len(int64_t payload_len) {
-    return sizeof(IPC_MAGIC) + sizeof(int8_t) + sizeof(int64_t) + payload_len;
+    return 0;
 }
 
 void build_ipc_msg(int8_t cmd,
-                   char *payload,
-                   int64_t payload_len,
-                   char *msgbuf,
-                   int64_t msgbuf_len) {
-    char *msgptr = msgbuf;
+                   const struct ByteArray *payload,
+                   struct ByteArray *msg) {
+    int64_t msg_len =
+        sizeof(IPC_MAGIC) + sizeof(cmd) + sizeof(payload->len) + payload->len;
+    bytearray_init(msg, msg_len);
+
+    char *msgptr = msg->bytes;
+
     memcpy(msgptr, IPC_MAGIC, sizeof(IPC_MAGIC));
     msgptr += sizeof(IPC_MAGIC);
+
     memcpy(msgptr, &cmd, sizeof(cmd));
     msgptr += sizeof(cmd);
-    memcpy(msgptr, &payload_len, sizeof(payload_len));
-    msgptr += sizeof(payload_len);
-    strncpy(msgptr, payload, min(payload_len, msgbuf_len));
+
+    memcpy(msgptr, &payload->len, sizeof(payload->len));
+    msgptr += sizeof(payload->len);
+
+    strncpy(msgptr, payload->bytes, min(payload->len, msg->len));
 }

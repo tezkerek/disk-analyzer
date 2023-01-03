@@ -21,3 +21,13 @@ void *da_malloc(size_t size) {
 
     return alloc_len;
 }
+
+void bytearray_init(struct ByteArray *arr, int64_t len) {
+    arr->len = len;
+    arr->bytes = da_malloc(len * sizeof(*arr->bytes));
+}
+
+void bytearray_destroy(struct ByteArray *arr) {
+    free(arr->bytes);
+    arr->bytes = NULL;
+}
