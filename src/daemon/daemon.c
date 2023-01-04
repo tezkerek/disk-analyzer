@@ -79,10 +79,17 @@ int remove_job(struct Job *job_to_remove) {
 
 int print_done_jobs() {}
 
-int get_job_info(int64_t id) {}
+int get_job_info(struct Job *this_job) {}
 
 int list_jobs() {}
-int create_job(char *path, int8_t priority) {
+
+/**
+ * Creates a job and returns its id through the job_id argument.
+ * Returns 0 for success or an error code otherwise.
+ * Errors: -1 if path does not exist
+ *         -2 if path is part of an existing job (the returned job_id)
+ */
+int create_job(char *path, int8_t priority, int64_t *job_id) {
     pthread_attr_t tattr;
     struct sched_param param;
 
@@ -94,17 +101,17 @@ int create_job(char *path, int8_t priority) {
     ret = pthread_attr_setschedparam(&tattr, &param);
 
     // TODO: Mutex lock?
-    int job_id = job_count;
+    *job_id = job_count;
     ++job_count;
     // TODO: Mutex unlock?
 
-    struct traverse_args *args = malloc(sizeof(struct traverse_args));
+    struct Traverse_Args *args = malloc(sizeof(struct Traverse_Args));
     args->path = path;
-    args->job_id = job_id;
+    args->job_id = *job_id;
 
-    jobs[job_id] = malloc(sizeof(jobs[job_id]));
+    jobs[*job_id] = malloc(sizeof(jobs[*job_id]));
     // TODO: add tattr to pthread_create?
-    ret = pthread_create(&jobs[job_id]->thread, NULL, traverse, (void *)args);
+    ret = pthread_create(&jobs[*job_id]->thread, NULL, traverse, (void *)args);
 
     if (ret) {
         perror("Error creating thread");
@@ -228,8 +235,6 @@ int main() {
     pthread_join(ipc_monitor_thread, NULL);
 
     close(serverfd);
-    // int x = create_job("/home/adela/so_lab_mare", 2);
-    // printf("%d\n", jobs[job_count - 1]->root->bytes);
 
     return EXIT_SUCCESS;
 }

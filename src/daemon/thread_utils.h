@@ -31,8 +31,8 @@ struct Job {
     struct Directory *root;           // children directories
 };
 
-struct traverse_args {
-  int job_id;
+struct Traverse_Args {
+  int64_t job_id;
   char *path;
 };
 
