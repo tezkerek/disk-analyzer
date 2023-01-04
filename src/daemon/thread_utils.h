@@ -2,7 +2,6 @@
 #define THREAD_UTILS_HEADER
 
 #include <errno.h>
-#include <ftw.h>
 #include <libgen.h>
 #include <pthread.h>
 #include <sched.h>
@@ -18,10 +17,10 @@
 struct Directory {
     char *path;
     struct Directory *parent;
-    struct Directory *children[MAX_CHILDREN];
+    struct Directory **children;
     uint64_t bytes;
-    uint64_t number_files;
-    uint64_t number_subdir;
+    uint32_t number_files;
+    uint32_t number_subdir, children_capacity;
 };
 
 struct Job {
@@ -30,6 +29,11 @@ struct Job {
     pthread_mutex_t status_mutex;     // used for accessing `status`
     pthread_cond_t mutex_resume_cond; // used for safely locking a thread
     struct Directory *root;           // children directories
+};
+
+struct traverse_args {
+  int job_id;
+  char *path;
 };
 
 static uint64_t job_count = 0;
@@ -60,13 +64,5 @@ struct Directory *last[MAX_THREADS];
  * Creates Job object and starts analysing directory
  */
 void *traverse(void *path);
-
-/**
- * Fills directory structure.
- */
-static int build_tree(const char *fpath,
-                      const struct stat *sb,
-                      int typeflag,
-                      struct FTW *ftwbuf);
 
 #endif
