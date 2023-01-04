@@ -1,8 +1,6 @@
 #ifndef THREAD_UTILS_HEADER
 #define THREAD_UTILS_HEADER
 
-#define _XOPEN_SOURCE 500
-
 #include <errno.h>   // nsfw related
 #include <ftw.h>     // nsfw related
 #include <libgen.h>  // nsfw related
@@ -37,10 +35,10 @@ struct Job {
 static uint64_t job_count = 0;
 
 /**
- * Checks if given id is valid.
- * Returns 1 on success, 0 on error.
+ * Finds the job associated with the given id.
+ * Returns NULL on error.
  */
-int verify_id(int64_t id);
+struct Job *find_job_by_id(int64_t id);
 
 /**
  * Keeps track of all jobs.

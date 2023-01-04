@@ -9,7 +9,11 @@
 #include <sys/stat.h> // nsfw related
 #include <unistd.h>   // sockets
 
-int verify_id(int64_t id) { return id >= 0 && id < job_count; }
+struct Job *find_job_by_id(int64_t id) {
+    if (id >= 0 && id < job_count)
+        return jobs[id];
+    return NULL;
+}
 
 void check_suspend(struct Job *job_to_check) {
     pthread_mutex_t status_mutex = job_to_check->status_mutex;

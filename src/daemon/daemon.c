@@ -113,14 +113,6 @@ int create_job(char *path, int8_t priority) {
     return 0;
 }
 
-
-/**
- * Creates a job and returns its id through the job_id argument.
- * Returns 0 for success or an error code otherwise.
- * Errors: -1 if path does not exist
- *         -2 if path is part of an existing job (the returned job_id)
- */
-
 int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
     // TODO: Handle reply, errors
     if (cmd == CMD_ADD) {
@@ -135,6 +127,7 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
         strncpy(path, payload->bytes, payload->len);
         // Null terminate
         path[payload->len] = 0;
+
         int64_t job_id;
         int8_t code = create_job(path, priority, &job_id);
 
@@ -152,14 +145,19 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
         // Read job_id
         memcpy(&job_id, payload->bytes, sizeof(job_id));
 
+        struct Job *this_job;
+        if ((this_job = find_job_by_id(job_id)) == NULL) {
+            return -255;
+        }
+
         if (cmd == CMD_SUSPEND) {
-            pause_job(job_id);
+            pause_job(this_job);
         } else if (cmd == CMD_REMOVE) {
-            remove_job(job_id);
+            remove_job(this_job);
         } else if (cmd == CMD_RESUME) {
-            resume_job(job_id);
+            resume_job(this_job);
         } else if (cmd == CMD_INFO) {
-            get_job_info(job_id);
+            get_job_info(this_job);
         } else {
             return -1;
         }
