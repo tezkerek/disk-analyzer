@@ -173,6 +173,38 @@ int print_done_jobs() {
 int get_job_info(int64_t id) {}
 
 int list_jobs() {}
+int create_job(char *path, int8_t priority) {
+	pthread_attr_t tattr;
+	struct sched_param param;
+
+	int ret = pthread_attr_init (&tattr);
+	ret = pthread_attr_getschedparam (&tattr, &param);
+
+	param.sched_priority = priority;
+	
+	ret = pthread_attr_setschedparam (&tattr, &param);
+
+	jobs[idSequence] = malloc(sizeof(jobs[idSequence]));
+	jobs[idSequence]->status = JOB_STATUS_IN_PROGRESS;
+	ret = pthread_create (&threads_arr[idSequence], NULL, traverse, (void*)path);
+	
+	if (ret) {
+		perror("Error creating thread");
+		exit(EXIT_FAILURE);
+	}
+
+	pthread_join(threads_arr[idSequence], NULL);
+	
+	jobs[idSequence]->root = malloc(sizeof(*jobs[idSequence]->root));
+	jobs[idSequence]->root = last[idSequence];
+
+	jobs[idSequence]->status = JOB_STATUS_DONE;
+
+	++idSequence;
+	
+	return 0;
+}
+
 
 /**
  * Creates a job and returns its id through the job_id argument.
@@ -196,7 +228,6 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
         strncpy(path, payload->bytes, payload->len);
         // Null terminate
         path[payload->len] = 0;
-
         int64_t job_id;
         int8_t code = create_job(path, priority, &job_id);
 
