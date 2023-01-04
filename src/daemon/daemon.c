@@ -114,44 +114,57 @@ int create_job(char *path, int8_t priority) {
     return 0;
 }
 
-int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
-    if (cmd == CMD_SUSPEND) { // pause analysis
-        int64_t requested_id = atoi(payload);
-        if (verify_id(requested_id) == 0) {
-            return -1;
+int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
+    // TODO: Handle reply, errors
+    if (cmd == CMD_ADD) {
+        if (payload->len <= 0) {
+            // TODO: Generic bad input error
+            return -255;
         }
 
-        pause_job(jobs[requested_id]);
-    } else if (cmd == CMD_REMOVE) { // remove job
-        int64_t requested_id = atoi(payload);
-        if (verify_id(requested_id) == 0) {
-            return -1;
-        }
+        int8_t priority = payload->bytes[0];
+        // Read path
+        char *path = da_malloc((payload->len + 1) * sizeof(char));
+        strncpy(path, payload->bytes, payload->len);
+        // Null terminate
+        path[payload->len] = 0;
 
-        remove_job(jobs[requested_id]);
-    } else if (cmd == CMD_RESUME) { // resume job
-        int64_t requested_id = atoi(payload);
-        if (verify_id(requested_id) == 0) {
-            return -1;
-        }
+        int64_t job_id;
+        int8_t code = create_job(path, priority, &job_id);
 
-        resume_job(jobs[requested_id]);
-    } else if (cmd == CMD_PRINT) { // print report for 'done' tasks
+        free(path);
+    } else if (cmd == CMD_PRINT) {
         print_done_jobs();
-
-    } else if (cmd == CMD_INFO) { // info about analysis
-        int64_t requested_id = atoi(payload);
-        if (verify_id(requested_id) == 0) {
-            return -1;
+    } else if (cmd == CMD_LIST) {
+        list_jobs();
+    } else {
+        int64_t job_id;
+        if (payload->len != sizeof(job_id)) {
+            return -255;
         }
 
-        get_job_info(requested_id);
-    } else if (cmd == CMD_LIST) { // list all tasks
-        list_jobs();
-    } else if (cmd == CMD_ADD) { // create job
-        create_job(payload + 1, payload[0] - '0');
+        // Read job_id
+        memcpy(&job_id, payload->bytes, sizeof(job_id));
+
+        struct Job *this_job;
+        if ((this_job = find_job_by_id(job_id)) == NULL) {
+            return -255;
+        }
+
+        if (cmd == CMD_SUSPEND) {
+            pause_job(this_job);
+        } else if (cmd == CMD_REMOVE) {
+            remove_job(this_job);
+        } else if (cmd == CMD_RESUME) {
+            resume_job(this_job);
+        } else if (cmd == CMD_INFO) {
+            get_job_info(this_job);
+        } else {
+            return -1;
+        }
     }
-    return 1;
+
+    return 0;
 }
 
 void *monitor_ipc(void *vserverfd) {
