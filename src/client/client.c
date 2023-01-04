@@ -36,7 +36,6 @@ int send_ipc_msg(int serverfd, int8_t cmd, char *payload, int64_t payload_len) {
 
 int main(int argc, char *argv[]) {
     int serverfd = connect_to_socket();
-    
     char *text = argv[1];
 
     // Send command to daemon

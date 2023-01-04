@@ -1,109 +1,14 @@
-#define _XOPEN_SOURCE 500
-#include <common/utils.h>
 #include <common/ipc.h>
-#include <pthread.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
-#include <sched.h>
-#include <ftw.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <libgen.h>
-#include <errno.h>
-
-#define MAX_THREADS            100 // danger
-#define MAX_CHILDREN           100 // danger
-#define JOB_STATUS_IN_PROGRESS 0
-#define JOB_STATUS_REMOVED     1
-#define JOB_STATUS_PAUSED      2
-#define JOB_STATUS_DONE        3
-
-struct Directory {
-    char *path;
-    struct Directory *parent;
-    struct Directory *children[MAX_CHILDREN];
-    uint64_t bytes;
-    uint64_t number_files;
-    uint64_t number_subdir;
-};
-
-struct Job {
-    pthread_t thread;
-    int8_t status;           // status of job -> in progress(0), done(1), removed(3), paused(2)
-    struct Directory *root; // children directories
-};
-
-static uint64_t job_count = 0;
-struct Job job_history[MAX_THREADS];
-
-struct Job *jobs[MAX_THREADS];
-
-struct Directory *last[MAX_THREADS];
-
-static int build_tree (const char* fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-
-	if (!strcmp(fpath, last[job_count]->path)) return 0;
-
-	char *aux = malloc(strlen(fpath) * sizeof(char) + 1);
-	strcpy(aux, fpath);
-	strcpy(aux, dirname(aux));
-	while (strcmp(aux, last[job_count]->path)) {
-		last[job_count]->parent->bytes += last[job_count]->bytes;
-		last[job_count] = last[job_count]->parent;
-	}
-
-	if (typeflag == FTW_D) {
-		struct Directory *current = malloc(sizeof(*current));
-		current->parent = last[job_count];
-		last[job_count]->bytes += sb->st_size;
-		current->number_subdir = 0;
-		current->path = malloc(strlen(fpath) * sizeof(char) + 1);
-		strcpy(current->path, fpath);
-		current->bytes = 0;
-		current->number_files = 0;
-		last[job_count]->children[last[job_count]->number_subdir] = current;
-		last[job_count]->number_subdir++;
-		last[job_count] = current;
-	}
-	else {
-		last[job_count]->number_files++;
-		last[job_count]->bytes += sb->st_size;
-	}
-
-	return 0;
-}
-
-void *traverse (void *path) {
-
-	int nopenfd = 20;  // ne gandim cat vrem sa punem
-	char *p = path;
-
-	struct Directory *root = malloc(sizeof(*root));
-	root->path = malloc(strlen(p) * sizeof(char) + 1);
-	strcpy(root->path, p);
-	root->parent = NULL;
-	root->bytes = root->number_files = root->number_subdir = 0;
-	last[job_count] = root;
-
-	if (nftw(p, build_tree, nopenfd, FTW_PHYS) == -1) {
-		perror("nsfw");   // modif
-		return errno;
-	}
-
-	while (last[job_count]->parent != NULL) {
-		last[job_count]->parent->bytes += last[job_count]->bytes;
-		last[job_count] = last[job_count]->parent;
-	}
-
-	return 0;
-}
-
+#include <common/utils.h>
+#include <daemon/thread_utils.h>
+#include <pthread.h>    // threads, mutexes
+#include <signal.h>     // kill, SIGTERM
+#include <stdio.h>      // perror
+#include <stdlib.h>     // atoi, malloc etc.
+#include <string.h>     // strncpy
+#include <sys/socket.h> // sockets
+#include <sys/un.h>     // sockaddr_un
+#include <unistd.h>     // sockets
 
 int bind_socket() {
     struct sockaddr_un address;
@@ -123,95 +28,124 @@ int bind_socket() {
     return fd;
 }
 
-void pretty_print_job(){};
+void pretty_print_job() {}
 
-int remove_job(int64_t id) {
-    struct Job *this_job = &job_history[id];
-    if (this_job->status != JOB_STATUS_DONE) {
-        if (kill(this_job->thread, SIGTERM) < 0) {
-            return -1;
-        }
-    }
-    this_job->status = JOB_STATUS_REMOVED;
-    return 0;
-}
+int pause_job(struct Job *job_to_pause) {
+    pthread_mutex_t *status_mutex = &job_to_pause->status_mutex;
 
-int resume_job(int64_t id) {
-    struct Job *this_job = &job_history[id];
-    if (kill(this_job->thread, SIGCONT) < 0) {
+    pthread_mutex_lock(status_mutex);
+    if (job_to_pause->status != JOB_STATUS_IN_PROGRESS) {
+        pthread_mutex_unlock(status_mutex);
         return -1;
     }
-    this_job->status = JOB_STATUS_IN_PROGRESS;
+    job_to_pause->status = JOB_STATUS_PAUSED;
+    pthread_mutex_unlock(status_mutex);
+
     return 0;
 }
 
-int pause_job(int64_t id) {
-    struct Job *this_job = &job_history[id];
-    if (this_job->status != JOB_STATUS_DONE) {
+int resume_job(struct Job *job_to_resume) {
+    pthread_mutex_t *status_mutex = &job_to_resume->status_mutex;
+    pthread_cond_t *resume_cond = &job_to_resume->mutex_resume_cond;
 
-        if (kill(this_job->thread, SIGSTOP) < 0) {
-            return -1;
-        }
-        this_job->status = JOB_STATUS_PAUSED;
+    pthread_mutex_lock(status_mutex);
+    if (job_to_resume->status != JOB_STATUS_PAUSED) {
+        pthread_mutex_unlock(status_mutex);
+        return -1;
     }
+    job_to_resume->status = JOB_STATUS_IN_PROGRESS;
+    pthread_cond_broadcast(resume_cond);
+    pthread_mutex_unlock(status_mutex);
+
     return 0;
-} // mmove to new file?
-
-int print_done_jobs() {
-    for (size_t i = 0; i < job_count; i++) {
-        if (job_history[i].status == JOB_STATUS_DONE) {
-            pretty_print_job(i);
-        }
-    }
 }
+
+int remove_job(struct Job *job_to_remove) {
+    pthread_mutex_t *status_mutex = &job_to_remove->status_mutex;
+
+    if (pause_job(job_to_remove) < 0) {
+        return -1;
+    }
+    if (kill(job_to_remove->thread, SIGTERM) < 0) {
+        return -1;
+    }
+    // TODO: free tree structure
+    pthread_mutex_lock(status_mutex);
+    job_to_remove->status = JOB_STATUS_REMOVED;
+    pthread_mutex_unlock(status_mutex);
+
+    return 0;
+}
+
+int print_done_jobs() {}
 
 int get_job_info(int64_t id) {}
 
 int list_jobs() {}
 
 int create_job(char *path, int8_t priority) {
-	pthread_attr_t tattr;
-	struct sched_param param;
+    pthread_attr_t tattr;
+    struct sched_param param;
 
-	int ret = pthread_attr_init (&tattr);
-	ret = pthread_attr_getschedparam (&tattr, &param);
+    int ret = pthread_attr_init(&tattr);
+    ret = pthread_attr_getschedparam(&tattr, &param);
 
-	param.sched_priority = priority;
+    param.sched_priority = priority;
 
-	ret = pthread_attr_setschedparam (&tattr, &param);
+    ret = pthread_attr_setschedparam(&tattr, &param);
 
-	jobs[job_count] = malloc(sizeof(jobs[job_count]));
-	jobs[job_count]->status = JOB_STATUS_IN_PROGRESS;
-	ret = pthread_create (&jobs[job_count]->thread, NULL, traverse, (void*)path);
+    jobs[job_count] = malloc(sizeof(jobs[job_count]));
+    jobs[job_count]->status = JOB_STATUS_IN_PROGRESS;
+    ret = pthread_create(&jobs[job_count]->thread, NULL, traverse, (void *)path);
 
-	if (ret) {
-		perror("Error creating thread");
-		exit(EXIT_FAILURE);
-	}
+    if (ret) {
+        perror("Error creating thread");
+        return -1;
+    }
 
-	pthread_join(jobs[job_count]->thread, NULL);
+    pthread_join(jobs[job_count]->thread, NULL);
 
-	jobs[job_count]->root = last[job_count];
+    jobs[job_count]->root = last[job_count];
 
-	jobs[job_count]->status = JOB_STATUS_DONE;
+    jobs[job_count]->status = JOB_STATUS_DONE;
 
-	++job_count;
+    ++job_count;
 
-	return 0;
+    return 0;
 }
-
 
 int handle_ipc_cmd(int8_t cmd, char *payload, int64_t payload_len) {
     if (cmd == CMD_SUSPEND) { // pause analysis
-        pause_job(atoi(payload));
+        int64_t requested_id = atoi(payload);
+        if (verify_id(requested_id) == 0) {
+            return -1;
+        }
+
+        pause_job(jobs[requested_id]);
     } else if (cmd == CMD_REMOVE) { // remove job
-        remove_job(atoi(payload));
+        int64_t requested_id = atoi(payload);
+        if (verify_id(requested_id) == 0) {
+            return -1;
+        }
+
+        remove_job(jobs[requested_id]);
     } else if (cmd == CMD_RESUME) { // resume job
-        resume_job(atoi(payload));
+        int64_t requested_id = atoi(payload);
+        if (verify_id(requested_id) == 0) {
+            return -1;
+        }
+
+        resume_job(jobs[requested_id]);
     } else if (cmd == CMD_PRINT) { // print report for 'done' tasks
         print_done_jobs();
+
     } else if (cmd == CMD_INFO) { // info about analysis
-        get_job_info(atoi(payload));
+        int64_t requested_id = atoi(payload);
+        if (verify_id(requested_id) == 0) {
+            return -1;
+        }
+
+        get_job_info(requested_id);
     } else if (cmd == CMD_LIST) { // list all tasks
         list_jobs();
     } else if (cmd == CMD_ADD) { // create job
@@ -299,15 +233,15 @@ int main() {
     // Start IPC monitoring thread
     pthread_t ipc_monitor_thread;
     if (pthread_create(&ipc_monitor_thread, NULL, monitor_ipc, &serverfd) != 0) {
-       perror("Failed to create IPC monitoring thread");
-       close(serverfd);
-       exit(EXIT_FAILURE);
+        perror("Failed to create IPC monitoring thread");
+        close(serverfd);
+        exit(EXIT_FAILURE);
     }
     pthread_join(ipc_monitor_thread, NULL);
 
     close(serverfd);
-	// int x = create_job("/home/adela/so_lab_mare", 2);
-	// printf("%d\n", jobs[job_count - 1]->root->bytes);
+    // int x = create_job("/home/adela/so_lab_mare", 2);
+    // printf("%d\n", jobs[job_count - 1]->root->bytes);
 
     return EXIT_SUCCESS;
 }
