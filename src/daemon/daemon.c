@@ -1,14 +1,14 @@
 #include <common/ipc.h>
 #include <common/utils.h>
 #include <daemon/thread_utils.h>
-#include <pthread.h>    // threads, mutexes
-#include <signal.h>     // kill, SIGTERM
-#include <stdio.h>      // perror
-#include <stdlib.h>     // atoi, malloc etc.
-#include <string.h>     // strncpy
-#include <sys/socket.h> // sockets
-#include <sys/un.h>     // sockaddr_un
-#include <unistd.h>     // sockets
+#include <pthread.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 int bind_socket() {
     struct sockaddr_un address;

@@ -1,13 +1,13 @@
 #include <daemon/thread_utils.h>
-#include <errno.h>    // nsfw related
-#include <ftw.h>      // nsfw related
-#include <libgen.h>   // nsfw related
-#include <sched.h>    // nsfw related
-#include <stdio.h>    // perror
-#include <stdlib.h>   // malloc, free etc.
-#include <string.h>   // strncpy
-#include <sys/stat.h> // nsfw related
-#include <unistd.h>   // sockets
+#include <errno.h>
+#include <ftw.h>
+#include <libgen.h>
+#include <sched.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 struct Job *find_job_by_id(int64_t id) {
     if (id >= 0 && id < job_count)

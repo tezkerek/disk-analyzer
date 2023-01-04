@@ -1,12 +1,12 @@
 #ifndef THREAD_UTILS_HEADER
 #define THREAD_UTILS_HEADER
 
-#include <errno.h>   // nsfw related
-#include <ftw.h>     // nsfw related
-#include <libgen.h>  // nsfw related
-#include <pthread.h> // threads, mutexes
-#include <sched.h>   // nsfw related
-#include <stdint.h>  // nsfw related
+#include <errno.h>
+#include <ftw.h>
+#include <libgen.h>
+#include <pthread.h>
+#include <sched.h>
+#include <stdint.h>
 
 #define MAX_THREADS            100
 #define MAX_CHILDREN           100
