@@ -36,7 +36,12 @@ int send_ipc_msg(int serverfd, int8_t cmd, const struct ByteArray *payload) {
 }
 
 int main(int argc, char *argv[]) {
+<<<<<<< HEAD
     struct da_args args;
+=======
+    int serverfd = connect_to_socket();
+    char *text = argv[1];
+>>>>>>> create header for thread utils
 
     if (parse_args(argc, argv, &args) < 0) {
         fputs("Failed to parse args\n", stderr);
