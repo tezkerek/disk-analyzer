@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
     struct da_args args;
 =======
     int serverfd = connect_to_socket();
+
     char *text = argv[1];
 >>>>>>> create header for thread utils
 
