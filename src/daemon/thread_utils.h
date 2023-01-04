@@ -8,8 +8,6 @@
 #include <sched.h>
 #include <stdint.h>
 
-#define MAX_THREADS            100
-#define MAX_CHILDREN           100
 #define JOB_STATUS_IN_PROGRESS 0
 #define JOB_STATUS_REMOVED     1
 #define JOB_STATUS_PAUSED      2
@@ -32,18 +30,11 @@ struct Job {
     struct Directory *root;           // children directories
 };
 
-static uint64_t job_count = 0;
-
 /**
  * Finds the job associated with the given id.
  * Returns NULL on error.
  */
 struct Job *find_job_by_id(int64_t id);
-
-/**
- * Keeps track of all jobs.
- */
-struct Job *jobs[MAX_THREADS];
 
 /**
  * Suspends the caller thread if variable is set.
@@ -52,21 +43,8 @@ struct Job *jobs[MAX_THREADS];
 void check_suspend(struct Job *job_to_check);
 
 /**
- * Memorises parent directory for traversal.
- */
-struct Directory *last[MAX_THREADS];
-
-/**
  * Creates Job object and starts analysing directory
  */
 void *traverse(void *path);
-
-/**
- * Fills directory structure.
- */
-static int build_tree(const char *fpath,
-                      const struct stat *sb,
-                      int typeflag,
-                      struct FTW *ftwbuf);
 
 #endif

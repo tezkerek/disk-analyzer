@@ -2,13 +2,21 @@
 #include <common/utils.h>
 #include <daemon/thread_utils.h>
 #include <pthread.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+
+#define MAX_THREADS  100
+#define MAX_CHILDREN 100
+
+static uint64_t job_count = 0;
+
+struct Directory *last[MAX_THREADS];
+
+struct Job *jobs[MAX_THREADS];
 
 int bind_socket() {
     struct sockaddr_un address;
@@ -66,10 +74,6 @@ int remove_job(struct Job *job_to_remove) {
     if (pause_job(job_to_remove) < 0) {
         return -1;
     }
-    if (kill(job_to_remove->thread, SIGTERM) < 0) {
-        return -1;
-    }
-    // TODO: free tree structure
     pthread_mutex_lock(status_mutex);
     job_to_remove->status = JOB_STATUS_REMOVED;
     pthread_mutex_unlock(status_mutex);
