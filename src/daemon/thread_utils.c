@@ -1,6 +1,6 @@
 #include <daemon/thread_utils.h>
 #include <errno.h>
-#include <ftw.h>
+#include <fts.h>
 #include <libgen.h>
 #include <sched.h>
 #include <stdio.h>
@@ -25,62 +25,96 @@ void check_suspend(struct Job *job_to_check) {
     pthread_mutex_unlock(status_mutex);
 }
 
-static int build_tree(const char *fpath,
-                      const struct stat *sb,
-                      int typeflag,
-                      struct FTW *ftwbuf) {
+/**
+ * Creates a new directory
+ * path - the path of the new directory
+ * parent - the parent of the new directory, 
+ * should be NULL if the new directory is root
+ */
+struct Directory *create_directory(char *path, struct Directory *parent) {
+    struct Directory *new_directory = malloc(sizeof(struct Directory));
+    new_directory->path = malloc((strlen(path) + 1) * sizeof(char));
+    strcpy(new_directory->path, path);
+    new_directory->parent = parent;
+    new_directory->bytes = new_directory->number_files = 0;
+    new_directory->children_capacity = new_directory->number_subdir = 0;
+    new_directory->children = NULL;
 
-    if (!strcmp(fpath, last[job_count]->path))
-        return 0;
+    if (parent != NULL) {
+      // Add the new directory to the list of his parents children
+      if (parent->children_capacity == parent->number_subdir) {
+        if (parent->children_capacity == 0)
+            parent->children_capacity = 1;
+        else
+            parent->children_capacity *= 2;
 
-    char *aux = malloc(strlen(fpath) * sizeof(char) + 1);
-    strcpy(aux, fpath);
-    strcpy(aux, dirname(aux));
-    while (strcmp(aux, last[job_count]->path)) {
-        last[job_count]->parent->bytes += last[job_count]->bytes;
-        last[job_count] = last[job_count]->parent;
+        parent->children = realloc(parent->children, parent->children_capacity);
+      }
+
+      parent->children[parent->number_subdir++] = new_directory;
     }
 
-    if (typeflag == FTW_D) {
-        struct Directory *current = malloc(sizeof(*current));
-        current->parent = last[job_count];
-        last[job_count]->bytes += sb->st_size;
-        current->number_subdir = 0;
-        current->path = malloc(strlen(fpath) * sizeof(char) + 1);
-        strcpy(current->path, fpath);
-        current->bytes = 0;
-        current->number_files = 0;
-        last[job_count]->children[last[job_count]->number_subdir] = current;
-        last[job_count]->number_subdir++;
-        last[job_count] = current;
-    } else {
-        last[job_count]->number_files++;
-        last[job_count]->bytes += sb->st_size;
-    }
-
-    return 0;
+    return new_directory;
 }
 
-void *traverse(void *path) {
+void *traverse(void *args) {
+    char *path = ((struct traverse_args *)args)->path;
+    int job_id = ((struct traverse_args *)args)->job_id;
+    jobs[job_id]->status = JOB_STATUS_IN_PROGRESS;
 
-    static int nopenfd = 20; // ne gandim cat vrem sa punem
-    char *p = path;
+    struct Directory *current_directory = create_directory(path, NULL);
+    jobs[job_id]->root = current_directory;
 
-    struct Directory *root = malloc(sizeof(*root));
-    root->path = malloc(strlen(p) * sizeof(char) + 1);
-    strcpy(root->path, p);
-    root->parent = NULL;
-    root->bytes = root->number_files = root->number_subdir = 0;
-    last[job_count] = root;
+    FTS *ftsp;
+    FTSENT *p, *chp;
 
-    if (nftw(p, build_tree, nopenfd, FTW_PHYS) == -1) {
-        perror("nsfw"); // modif
+    char **fts_args = malloc(2 * sizeof(char *));
+    fts_args[0] = path;
+    fts_args[1] = NULL;
+
+    if ((ftsp = fts_open(fts_args, FTS_NOCHDIR | FTS_PHYSICAL, NULL)) == NULL) {
+        perror("fts_open");
+        return NULL;
     }
 
-    while (last[job_count]->parent != NULL) {
-        last[job_count]->parent->bytes += last[job_count]->bytes;
-        last[job_count] = last[job_count]->parent;
+    int is_root = 1;
+    while ((p = fts_read(ftsp)) != NULL) {
+        check_suspend(jobs[job_id]);
+        switch (p->fts_info) {
+            case FTS_F:
+                // It's a file, add its size to the total
+                current_directory->bytes += p->fts_statp->st_size;
+                current_directory->number_files += 1;
+                break;
+            case FTS_D:
+                // It's a directory, traverse its contents
+
+                // if it's the root directory, we shouldn't create it again
+                if (!is_root) {
+                  current_directory = create_directory(p->fts_path, current_directory);
+                  current_directory->bytes += p->fts_statp->st_size;
+                } else {
+                  is_root = 0;
+                }
+
+                chp = fts_children(ftsp, 0);
+                if (chp == NULL) {
+                    break;
+                }
+                break;
+            default:
+                // if it's the root directory, we shouldn't go to its parent 
+                if (current_directory->parent != NULL) {
+                  current_directory->parent->bytes += current_directory->bytes;
+                  current_directory = current_directory->parent;
+                }
+                break;
+        }
     }
 
+    fts_close(ftsp);
+
+    jobs[job_id]->status = JOB_STATUS_DONE;
+    
     return 0;
 }

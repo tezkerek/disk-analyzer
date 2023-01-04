@@ -94,22 +94,23 @@ int create_job(char *path, int8_t priority) {
 
     ret = pthread_attr_setschedparam(&tattr, &param);
 
-    jobs[job_count] = malloc(sizeof(jobs[job_count]));
-    jobs[job_count]->status = JOB_STATUS_IN_PROGRESS;
-    ret = pthread_create(&jobs[job_count]->thread, NULL, traverse, (void *)path);
+    // TODO: Mutex lock?
+    int job_id = job_count;
+    ++job_count;
+    // TODO: Mutex unlock?
+
+    struct traverse_args *args = malloc(sizeof(struct traverse_args));
+    args->path = path;
+    args->job_id = job_id;
+
+    jobs[job_id] = malloc(sizeof(jobs[job_id]));
+    // TODO: add tattr to pthread_create?
+    ret = pthread_create(&jobs[job_id]->thread, NULL, traverse, (void *)args);
 
     if (ret) {
         perror("Error creating thread");
         return -1;
     }
-
-    pthread_join(jobs[job_count]->thread, NULL);
-
-    jobs[job_count]->root = last[job_count];
-
-    jobs[job_count]->status = JOB_STATUS_DONE;
-
-    ++job_count;
 
     return 0;
 }
