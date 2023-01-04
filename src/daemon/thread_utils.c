@@ -16,14 +16,13 @@ struct Job *find_job_by_id(int64_t id) {
 }
 
 void check_suspend(struct Job *job_to_check) {
-    pthread_mutex_t status_mutex = job_to_check->status_mutex;
-    int8_t status = job_to_check->status;
-    pthread_cond_t resume_cond = job_to_check->mutex_resume_cond;
+    pthread_mutex_t *status_mutex = &job_to_check->status_mutex;
+    pthread_cond_t *resume_cond = &job_to_check->mutex_resume_cond;
 
-    pthread_mutex_lock(&status_mutex);
-    while (status == JOB_STATUS_PAUSED)
-        pthread_cond_wait(&resume_cond, &status_mutex);
-    pthread_mutex_unlock(&status_mutex);
+    pthread_mutex_lock(status_mutex);
+    while (job_to_check->status == JOB_STATUS_PAUSED)
+        pthread_cond_wait(resume_cond, status_mutex);
+    pthread_mutex_unlock(status_mutex);
 }
 
 static int build_tree(const char *fpath,
