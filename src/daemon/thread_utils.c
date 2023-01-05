@@ -59,7 +59,7 @@ struct Directory *create_directory(char *path, struct Directory *parent) {
 
 void *traverse(void *args) {
     char *path = ((struct Traverse_Args *)args)->path;
-    int job_id = ((struct Traverse_Args *)args)->job_id;
+    int64_t job_id = ((struct Traverse_Args *)args)->job_id;
     jobs[job_id]->status = JOB_STATUS_IN_PROGRESS;
 
     struct Directory *current_directory = create_directory(path, NULL);
