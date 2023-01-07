@@ -10,6 +10,19 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#define MAX_THREADS  100
+#define MAX_CHILDREN 100
+
+static uint64_t job_count = 0;
+
+struct Job *jobs[MAX_THREADS];
+
+struct Job *find_job_by_id(int64_t id) {
+    if (id >= 0 && id < job_count)
+        return jobs[id];
+    return NULL;
+}
+
 int bind_socket() {
     struct sockaddr_un address;
     int fd = init_socket(&address);
@@ -29,53 +42,6 @@ int bind_socket() {
 }
 
 void pretty_print_job() {}
-
-int pause_job(struct Job *job_to_pause) {
-    pthread_mutex_t *status_mutex = &job_to_pause->status_mutex;
-
-    pthread_mutex_lock(status_mutex);
-    if (job_to_pause->status != JOB_STATUS_IN_PROGRESS) {
-        pthread_mutex_unlock(status_mutex);
-        return -1;
-    }
-    job_to_pause->status = JOB_STATUS_PAUSED;
-    pthread_mutex_unlock(status_mutex);
-
-    return 0;
-}
-
-int resume_job(struct Job *job_to_resume) {
-    pthread_mutex_t *status_mutex = &job_to_resume->status_mutex;
-    pthread_cond_t *resume_cond = &job_to_resume->mutex_resume_cond;
-
-    pthread_mutex_lock(status_mutex);
-    if (job_to_resume->status != JOB_STATUS_PAUSED) {
-        pthread_mutex_unlock(status_mutex);
-        return -1;
-    }
-    job_to_resume->status = JOB_STATUS_IN_PROGRESS;
-    pthread_cond_broadcast(resume_cond);
-    pthread_mutex_unlock(status_mutex);
-
-    return 0;
-}
-
-int remove_job(struct Job *job_to_remove) {
-    pthread_mutex_t *status_mutex = &job_to_remove->status_mutex;
-
-    if (pause_job(job_to_remove) < 0) {
-        return -1;
-    }
-    if (kill(job_to_remove->thread, SIGTERM) < 0) {
-        return -1;
-    }
-    // TODO: free tree structure
-    pthread_mutex_lock(status_mutex);
-    job_to_remove->status = JOB_STATUS_REMOVED;
-    pthread_mutex_unlock(status_mutex);
-
-    return 0;
-}
 
 int print_done_jobs() {}
 
@@ -100,12 +66,14 @@ int create_job(char *path, int8_t priority) {
     // TODO: Mutex unlock?
 
     struct traverse_args *args = malloc(sizeof(struct traverse_args));
-    args->path = path;
-    args->job_id = job_id;
+    struct Job *new_job = find_job_by_id(job_id);
 
-    jobs[job_id] = malloc(sizeof(jobs[job_id]));
+    args->path = path;
+    args->this_job = new_job;
+
+    new_job = malloc(sizeof(*new_job));
     // TODO: add tattr to pthread_create?
-    ret = pthread_create(&jobs[job_id]->thread, NULL, traverse, (void *)args);
+    ret = pthread_create(&new_job->thread, NULL, traverse, (void *)args);
 
     if (ret) {
         perror("Error creating thread");

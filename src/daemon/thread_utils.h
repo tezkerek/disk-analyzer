@@ -7,8 +7,6 @@
 #include <sched.h>
 #include <stdint.h>
 
-#define MAX_THREADS            100
-#define MAX_CHILDREN           100
 #define JOB_STATUS_IN_PROGRESS 0
 #define JOB_STATUS_REMOVED     1
 #define JOB_STATUS_PAUSED      2
@@ -32,11 +30,9 @@ struct Job {
 };
 
 struct traverse_args {
-  int job_id;
-  char *path;
+    struct Job *this_job;
+    char *path;
 };
-
-static uint64_t job_count = 0;
 
 /**
  * Finds the job associated with the given id.
@@ -45,24 +41,14 @@ static uint64_t job_count = 0;
 struct Job *find_job_by_id(int64_t id);
 
 /**
- * Keeps track of all jobs.
- */
-struct Job *jobs[MAX_THREADS];
-
-/**
- * Suspends the caller thread if variable is set.
- * Call on safe points where thread can be suspended.
- */
-void check_suspend(struct Job *job_to_check);
-
-/**
- * Memorises parent directory for traversal.
- */
-struct Directory *last[MAX_THREADS];
-
-/**
  * Creates Job object and starts analysing directory
  */
 void *traverse(void *path);
+
+int pause_job(struct Job *job_to_pause);
+
+int resume_job(struct Job *job_to_resume);
+
+int remove_job(struct Job *job_to_remove);
 
 #endif
