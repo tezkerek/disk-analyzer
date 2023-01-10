@@ -1,5 +1,6 @@
 #include <common/ipc.h>
 #include <common/utils.h>
+#include <daemon/thread_utils.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -10,30 +11,23 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#define MAX_THREADS            100 // danger
-#define MAX_CHILDREN           100 // danger
-#define JOB_STATUS_IN_PROGRESS 0
-#define JOB_STATUS_REMOVED     1
-#define JOB_STATUS_PAUSED      2
-#define JOB_STATUS_DONE        3
+#define MAX_THREADS  100
+#define MAX_CHILDREN 100
 
-struct Directory {
-    char *path;                               // path to this directory
-    struct Directory *children[MAX_CHILDREN]; // children directories
-    // Change unit of measurement for folders?
-    uint64_t bytes; // size of folder
-    // number of files at this level, not counting grandchildren !!
-    uint64_t file_count;
-};
-struct Job // este Misu <3
-{
-    pthread_t thread;
-    int8_t status; // status of job -> in progress(0), done(1), removed(3), paused(2)
-    struct Directory *root; // children directories
-};
-
+// TODO: Atomic int
 static uint64_t job_count = 0;
-struct Job job_history[MAX_THREADS];
+
+struct Job *jobs[MAX_THREADS];
+
+/**
+ * Finds the job associated with the given id.
+ * Returns NULL on error.
+ */
+struct Job *find_job_by_id(int64_t id) {
+    if (id >= 0 && id < job_count)
+        return jobs[id];
+    return NULL;
+}
 
 int bind_socket() {
     struct sockaddr_un address;
@@ -53,47 +47,9 @@ int bind_socket() {
     return fd;
 }
 
-void pretty_print_job(){};
+void pretty_print_job() {}
 
-int remove_job(int64_t id) {
-    struct Job *this_job = &job_history[id];
-    if (this_job->status != JOB_STATUS_DONE) {
-        if (kill(this_job->thread, SIGTERM) < 0) {
-            return -1;
-        }
-    }
-    this_job->status = JOB_STATUS_REMOVED;
-    return 0;
-}
-
-int resume_job(int64_t id) {
-    struct Job *this_job = &job_history[id];
-    if (kill(this_job->thread, SIGCONT) < 0) {
-        return -1;
-    }
-    this_job->status = JOB_STATUS_IN_PROGRESS;
-    return 0;
-}
-
-int pause_job(int64_t id) {
-    struct Job *this_job = &job_history[id];
-    if (this_job->status != JOB_STATUS_DONE) {
-
-        if (kill(this_job->thread, SIGSTOP) < 0) {
-            return -1;
-        }
-        this_job->status = JOB_STATUS_PAUSED;
-    }
-    return 0;
-} // mmove to new file?
-
-int print_done_jobs() {
-    for (size_t i = 0; i < job_count; i++) {
-        if (job_history[i].status == JOB_STATUS_DONE) {
-            pretty_print_job(i);
-        }
-    }
-}
+int print_done_jobs() {}
 
 int get_job_info(int64_t id) {}
 
@@ -105,7 +61,50 @@ int list_jobs() {}
  * Errors: -1 if path does not exist
  *         -2 if path is part of an existing job (the returned job_id)
  */
-int create_job(const char *path, int8_t priority, int64_t *job_id) {}
+int create_job(const char *path, int8_t priority, int64_t *job_id) {
+    struct Job *new_job = da_malloc(sizeof(*new_job));
+    struct TraverseArgs *args = da_malloc(sizeof(*args));
+
+    size_t path_len = strlen(path);
+    args->path = da_malloc((path_len + 1) * sizeof(*args->path));
+    strncpy(args->path, path, path_len);
+    args->job = new_job;
+
+    // TODO: Atomic int
+    *job_id = job_count;
+    ++job_count;
+
+    jobs[*job_id] = new_job;
+
+    // Create thread
+
+    // Set thread priority
+    pthread_attr_t tattr;
+    if (pthread_attr_init(&tattr) < 0) {
+        perror("pthread_attr_init");
+        return -1;
+    }
+
+    struct sched_param param;
+    if (pthread_attr_getschedparam(&tattr, &param) < 0) {
+        perror("pthread_attr_getschedparam");
+        return -1;
+    }
+
+    param.sched_priority = priority;
+
+    if (pthread_attr_setschedparam(&tattr, &param) < 0) {
+        perror("pthread_attr_setschedparam");
+        return -1;
+    }
+
+    if (pthread_create(&new_job->thread, &tattr, traverse, (void *)args) < 0) {
+        perror("pthread_create");
+        return -1;
+    }
+
+    return 0;
+}
 
 int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
     // TODO: Handle reply, errors
@@ -139,14 +138,19 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload) {
         // Read job_id
         memcpy(&job_id, payload->bytes, sizeof(job_id));
 
+        struct Job *job;
+        if ((job = find_job_by_id(job_id)) == NULL) {
+            return -255;
+        }
+
         if (cmd == CMD_SUSPEND) {
-            pause_job(job_id);
+            pause_job(job);
         } else if (cmd == CMD_REMOVE) {
-            remove_job(job_id);
+            remove_job(job);
         } else if (cmd == CMD_RESUME) {
-            resume_job(job_id);
+            resume_job(job);
         } else if (cmd == CMD_INFO) {
-            get_job_info(job_id);
+            get_job_info(job);
         } else {
             return -1;
         }
@@ -216,6 +220,8 @@ int main() {
     pthread_join(ipc_monitor_thread, NULL);
 
     close(serverfd);
+    // int x = create_job("/home/adela/so_lab_mare", 2);
+    // printf("%d\n", jobs[job_count - 1]->root->bytes);
 
     return EXIT_SUCCESS;
 }
