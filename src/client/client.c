@@ -35,6 +35,52 @@ int send_ipc_msg(int serverfd, int8_t cmd, const struct ByteArray *payload) {
     return written_bytes;
 }
 
+int handle_reply(int8_t cmd, int serverfd) {
+    int8_t code;
+    saferead(serverfd, &code, sizeof(code));
+    printf("Code %d\n", code);
+
+    if (cmd == CMD_ADD) {
+        if (code == 0) {
+            int64_t job_id;
+            saferead(serverfd, &job_id, sizeof(job_id));
+            printf("Analysis task with ID %ld\n", job_id);
+        }
+    } else if (cmd == CMD_INFO) {
+        if (code == 0) {
+            int64_t job_id;
+            saferead(serverfd, &job_id, sizeof(job_id));
+
+            int8_t priority;
+            saferead(serverfd, &priority, sizeof(priority));
+
+            int64_t path_len;
+            saferead(serverfd, &path_len, sizeof(path_len));
+
+            char *path = da_malloc((path_len + 1) * sizeof(*path));
+            saferead(serverfd, path, path_len);
+            // Null terminate
+            path[path_len] = 0;
+
+            int8_t progress;
+            saferead(serverfd, &progress, sizeof(progress));
+
+            int8_t status;
+            saferead(serverfd, &status, sizeof(status));
+
+            int32_t file_count;
+            saferead(serverfd, &file_count, sizeof(file_count));
+
+            int32_t dir_count;
+            saferead(serverfd, &dir_count, sizeof(dir_count));
+
+            // TODO: print header, align columns
+            printf("%lu %d %s %d %d\n", job_id, priority, path, file_count, dir_count);
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     struct da_args args;
 
@@ -70,6 +116,10 @@ int main(int argc, char *argv[]) {
         perror("Failed send");
         exit(EXIT_FAILURE);
     }
+
+    bytearray_destroy(&payload);
+
+    handle_reply(args.cmd, serverfd);
 
     bytearray_destroy(&payload);
 

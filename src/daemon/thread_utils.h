@@ -23,6 +23,7 @@ struct Directory {
 
 struct Job {
     pthread_t thread;
+    int8_t priority;
     int8_t status;
     pthread_mutex_t status_mutex;     // used for accessing `status`
     pthread_cond_t mutex_resume_cond; // used for safely locking a thread
