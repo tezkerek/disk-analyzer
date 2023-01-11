@@ -68,14 +68,14 @@ int handle_reply(int8_t cmd, int serverfd) {
             int8_t status;
             saferead(serverfd, &status, sizeof(status));
 
-            int32_t file_count;
+            int64_t file_count;
             saferead(serverfd, &file_count, sizeof(file_count));
 
-            int32_t dir_count;
+            int64_t dir_count;
             saferead(serverfd, &dir_count, sizeof(dir_count));
 
             // TODO: print header, align columns
-            printf("%lu %d %s %d %d\n", job_id, priority, path, file_count, dir_count);
+            printf("%lu %d %s %lu files, %lu dirs\n", job_id, priority, path, file_count, dir_count);
         }
     }
     return 0;

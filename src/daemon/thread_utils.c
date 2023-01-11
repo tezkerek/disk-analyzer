@@ -24,7 +24,16 @@ void clean_dir(struct Directory *dir) {
 void clean_job(struct Job *job) {
     clean_dir(job->root);
     free(job->root);
+    pthread_mutex_destroy(&job->status_mutex);
     job->root = NULL;
+}
+
+int job_init(struct Job *job) {
+    pthread_mutex_init(&job->status_mutex, NULL);
+    job->total_dir_count = 0;
+    job->total_file_count = 0;
+
+    return 0;
 }
 
 /**
@@ -83,6 +92,8 @@ void *traverse(void *vargs) {
     struct Job *job = args->job;
 
     job->status = JOB_STATUS_IN_PROGRESS;
+    job->total_dir_count = 0;
+    job->total_file_count = 0;
 
     struct Directory *current_dir = create_directory(path, NULL);
     job->root = current_dir;
@@ -107,16 +118,18 @@ void *traverse(void *vargs) {
             // It's a file, add its size to the total
             current_dir->bytes += p->fts_statp->st_size;
             current_dir->number_files += 1;
+            job->total_file_count += 1;
             break;
         case FTS_D:
             // It's a directory, traverse its contents
 
             // if it's the root directory, we shouldn't create it again
-            if (!is_root) {
+            if (is_root) {
+                is_root = 0;
+            } else {
+                job->total_dir_count += 1;
                 current_dir = create_directory(p->fts_path, current_dir);
                 current_dir->bytes += p->fts_statp->st_size;
-            } else {
-                is_root = 0;
             }
 
             chp = fts_children(ftsp, 0);
@@ -130,7 +143,7 @@ void *traverse(void *vargs) {
         case FTS_NS:
             fprintf(stderr, "fts_read: no stat for %s\n", p->fts_path);
             break;
-        default:
+        case FTS_DP:
             // if it's the root directory, we shouldn't go to its parent
             if (current_dir->parent != NULL) {
                 current_dir->parent->bytes += current_dir->bytes;

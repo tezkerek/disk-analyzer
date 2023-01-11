@@ -58,8 +58,8 @@ int get_job_info(struct Job *job, struct ByteArray *result) {
     int64_t path_len = strlen(job->root->path);
     int64_t payload_len = sizeof(int64_t) + sizeof(job->priority) + sizeof(int64_t) +
                           path_len + sizeof(progress) + sizeof(job->status) +
-                          sizeof(job->root->number_files) +
-                          sizeof(job->root->number_subdir);
+                          sizeof(job->total_file_count) +
+                          sizeof(job->total_dir_count);
 
     bytearray_init(result, payload_len);
 
@@ -82,10 +82,10 @@ int get_job_info(struct Job *job, struct ByteArray *result) {
     memcpy(ptr, &job->status, sizeof(job->status));
     ptr += sizeof(job->status);
 
-    memcpy(ptr, &job->root->number_files, sizeof(job->root->number_files));
-    ptr += sizeof(job->root->number_files);
+    memcpy(ptr, &job->total_file_count, sizeof(job->total_file_count));
+    ptr += sizeof(job->total_file_count);
 
-    memcpy(ptr, &job->root->number_subdir, sizeof(job->root->number_subdir));
+    memcpy(ptr, &job->total_dir_count, sizeof(job->total_dir_count));
 
     return 0;
 }
@@ -102,6 +102,7 @@ int8_t create_job(const char *path, int8_t priority, int64_t *job_id) {
     // TODO: Check that path exists and is not contained in existing job
 
     struct Job *new_job = da_malloc(sizeof(*new_job));
+    job_init(new_job);
     new_job->priority = priority;
 
     struct TraverseArgs *args = da_malloc(sizeof(*args));
