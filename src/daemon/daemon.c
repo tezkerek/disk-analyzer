@@ -109,6 +109,8 @@ int8_t create_job(const char *path, int8_t priority, int64_t *job_id) {
     size_t path_len = strlen(path);
     args->path = da_malloc((path_len + 1) * sizeof(*args->path));
     strncpy(args->path, path, path_len);
+    args->path[path_len] = 0;
+
     args->job = new_job;
 
     // TODO: Atomic int
@@ -159,10 +161,11 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
 
         int8_t priority = payload->bytes[0];
         // Read path
-        char *path = da_malloc((payload->len + 1) * sizeof(char));
-        strncpy(path, payload->bytes, payload->len);
+        int64_t path_len = payload->len - 1;
+        char *path = da_malloc((path_len + 1) * sizeof(*path));
+        strncpy(path, payload->bytes + 1, path_len);
         // Null terminate
-        path[payload->len] = 0;
+        path[path_len] = 0;
 
         int64_t job_id;
         exit_code = create_job(path, priority, &job_id);
