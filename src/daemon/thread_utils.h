@@ -28,7 +28,14 @@ struct Job {
     pthread_mutex_t status_mutex;     // used for accessing `status`
     pthread_cond_t mutex_resume_cond; // used for safely locking a thread
     struct Directory *root;           // children directories
+    int64_t total_dir_count;
+    int64_t total_file_count;
 };
+
+/**
+ * Initialize a Job struct.
+ */
+int job_init(struct Job *job);
 
 struct TraverseArgs {
     struct Job *job;
