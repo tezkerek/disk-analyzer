@@ -40,10 +40,10 @@ struct TraverseArgs {
  */
 void *traverse(void *path);
 
-int pause_job(struct Job *job_to_pause);
+int pause_job(struct Job *job);
 
-int resume_job(struct Job *job_to_resume);
+int resume_job(struct Job *job);
 
-int remove_job(struct Job *job_to_remove);
+int remove_job(struct Job *job);
 
 #endif
