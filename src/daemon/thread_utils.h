@@ -12,14 +12,31 @@
 #define JOB_STATUS_PAUSED      2
 #define JOB_STATUS_DONE        3
 
+struct Directory;
+
+struct DirList {
+    struct Directory *dir;
+    struct DirList *next;
+};
+
+/**
+ * Push dir to the front of the list and return the new head.
+ */
+struct DirList *dirlist_push_front(struct DirList *head, struct Directory *dir);
+
 struct Directory {
     char *path;
     struct Directory *parent;
-    struct Directory **children;
-    uint64_t bytes;
-    uint32_t number_files;
-    uint32_t number_subdir, children_capacity;
+    struct DirList *subdirs;
+    int64_t bytes;
 };
+
+/**
+ * Initializes a Directory for the given path.
+ */
+int directory_init(struct Directory *dir, const char *path);
+
+void directory_destroy(struct Directory *dir);
 
 struct Job {
     pthread_t thread;

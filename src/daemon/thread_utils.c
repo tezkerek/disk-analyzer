@@ -10,22 +10,32 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-void clean_dir(struct Directory *dir) {
-    free(dir->path);
-    for (uint32_t i = 0; i < dir->children_capacity; i++) {
-        if (dir->children[i] != NULL) {
-            clean_dir(dir->children[i]);
-            free(dir->children[i]);
-        }
+struct DirList *dirlist_push_front(struct DirList *head, struct Directory *dir) {
+    struct DirList *new_node = da_malloc(sizeof(*new_node));
+    new_node->dir = dir;
+    new_node->next = NULL;
+
+    if (head == NULL) {
+        head = new_node;
+    } else {
+        new_node->next = head;
     }
-    free(dir->children);
 }
 
-void clean_job(struct Job *job) {
-    clean_dir(job->root);
-    free(job->root);
-    pthread_mutex_destroy(&job->status_mutex);
-    job->root = NULL;
+void dirlist_destroy(struct DirList *head) {
+    while (head != NULL) {
+        directory_destroy(head->dir);
+        free(head->dir);
+        head = head->next;
+    }
+}
+
+void directory_destroy(struct Directory *dir) {
+    if (dir == NULL)
+        return;
+
+    free(dir->path);
+    dirlist_destroy(dir->subdirs);
 }
 
 int job_init(struct Job *job) {
@@ -34,6 +44,13 @@ int job_init(struct Job *job) {
     job->total_file_count = 0;
 
     return 0;
+}
+
+void job_destroy(struct Job *job) {
+    pthread_mutex_destroy(&job->status_mutex);
+    directory_destroy(job->root);
+    free(job->root);
+    job->root = NULL;
 }
 
 /**
@@ -50,40 +67,14 @@ void check_suspend(struct Job *job_to_check) {
     pthread_mutex_unlock(status_mutex);
 }
 
-/**
- * Creates a new directory
- * path - the path of the new directory
- * parent - the parent of the new directory,
- * should be NULL if the new directory is root
- */
-struct Directory *create_directory(const char *path, struct Directory *parent) {
-    struct Directory *new_dir = da_malloc(sizeof(*new_dir));
+int directory_init(struct Directory *dir, const char *path) {
+    dir->path = da_malloc((strlen(path) + 1) * sizeof(*dir->path));
+    strcpy(dir->path, path);
+    dir->parent = NULL;
+    dir->subdirs = NULL;
+    dir->bytes = 0;
 
-    new_dir->path = da_malloc((strlen(path) + 1) * sizeof(*new_dir->path));
-    strcpy(new_dir->path, path);
-    new_dir->parent = parent;
-    new_dir->bytes = new_dir->number_files = 0;
-    new_dir->children_capacity = new_dir->number_subdir = 0;
-    new_dir->children = NULL;
-
-    if (parent != NULL) {
-        // Add the new directory to the list of his parents children
-        if (parent->children_capacity == parent->number_subdir) {
-            // TODO: Switch to linked list
-            if (parent->children_capacity == 0)
-                parent->children_capacity = 1;
-            else
-                parent->children_capacity *= 2;
-
-            parent->children =
-                realloc(parent->children,
-                        parent->children_capacity * sizeof(struct Directory *));
-        }
-
-        parent->children[parent->number_subdir++] = new_dir;
-    }
-
-    return new_dir;
+    return 0;
 }
 
 void *traverse(void *vargs) {
@@ -95,11 +86,13 @@ void *traverse(void *vargs) {
     job->total_dir_count = 0;
     job->total_file_count = 0;
 
-    struct Directory *current_dir = create_directory(path, NULL);
+    // Create root dir
+    struct Directory *current_dir = da_malloc(sizeof(*current_dir));
+    directory_init(current_dir, path);
     job->root = current_dir;
 
     FTS *ftsp;
-    FTSENT *p, *chp;
+    FTSENT *p;
 
     char *fts_args[] = {path, NULL};
 
@@ -117,7 +110,6 @@ void *traverse(void *vargs) {
         case FTS_F:
             // It's a file, add its size to the total
             current_dir->bytes += p->fts_statp->st_size;
-            current_dir->number_files += 1;
             job->total_file_count += 1;
             break;
         case FTS_D:
@@ -127,18 +119,18 @@ void *traverse(void *vargs) {
             if (is_root) {
                 is_root = 0;
             } else {
+                // Create a new directory as subdir of the current directory
+                struct Directory *new_dir = da_malloc(sizeof(*new_dir));
+                directory_init(new_dir, p->fts_path);
+                current_dir->subdirs =
+                    dirlist_push_front(current_dir->subdirs, new_dir);
+
+                new_dir->bytes += p->fts_statp->st_size;
+
+                current_dir = new_dir;
                 job->total_dir_count += 1;
-                current_dir = create_directory(p->fts_path, current_dir);
-                current_dir->bytes += p->fts_statp->st_size;
             }
 
-            chp = fts_children(ftsp, 0);
-            if (chp == NULL) {
-                if (errno != 0) {
-                    perror("fts_children");
-                }
-                break;
-            }
             break;
         case FTS_NS:
             fprintf(stderr, "fts_read: no stat for %s\n", p->fts_path);
@@ -159,7 +151,7 @@ void *traverse(void *vargs) {
 
     fts_close(ftsp);
     if (job->status == JOB_STATUS_REMOVED) {
-        clean_job(job);
+        job_destroy(job);
     } else
         job->status = JOB_STATUS_DONE;
 
