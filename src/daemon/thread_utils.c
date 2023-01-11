@@ -1,3 +1,4 @@
+#include <common/utils.h>
 #include <daemon/thread_utils.h>
 #include <errno.h>
 #include <fts.h>
@@ -9,22 +10,21 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-void clean_dir(struct Directory *this_dir) {
-    free(this_dir->path);
-    for (uint32_t i = 0; i < this_dir->children_capacity; i++) {
-        if (this_dir->children[i] != NULL) {
-            clean_dir(this_dir->children[i]);
-            free(this_dir->children[i]);
+void clean_dir(struct Directory *dir) {
+    free(dir->path);
+    for (uint32_t i = 0; i < dir->children_capacity; i++) {
+        if (dir->children[i] != NULL) {
+            clean_dir(dir->children[i]);
+            free(dir->children[i]);
         }
     }
-    free(this_dir->children);
+    free(dir->children);
 }
 
 void clean_job(struct Job *job) {
     clean_dir(job->root);
     free(job->root);
-    free(job);
-    job = NULL;
+    job->root = NULL;
 }
 
 /**
@@ -47,18 +47,20 @@ void check_suspend(struct Job *job_to_check) {
  * parent - the parent of the new directory,
  * should be NULL if the new directory is root
  */
-struct Directory *create_directory(char *path, struct Directory *parent) {
-    struct Directory *new_directory = malloc(sizeof(struct Directory));
-    new_directory->path = malloc((strlen(path) + 1) * sizeof(char));
-    strcpy(new_directory->path, path);
-    new_directory->parent = parent;
-    new_directory->bytes = new_directory->number_files = 0;
-    new_directory->children_capacity = new_directory->number_subdir = 0;
-    new_directory->children = NULL;
+struct Directory *create_directory(const char *path, struct Directory *parent) {
+    struct Directory *new_dir = da_malloc(sizeof(*new_dir));
+
+    new_dir->path = da_malloc((strlen(path) + 1) * sizeof(*new_dir->path));
+    strcpy(new_dir->path, path);
+    new_dir->parent = parent;
+    new_dir->bytes = new_dir->number_files = 0;
+    new_dir->children_capacity = new_dir->number_subdir = 0;
+    new_dir->children = NULL;
 
     if (parent != NULL) {
         // Add the new directory to the list of his parents children
         if (parent->children_capacity == parent->number_subdir) {
+            // TODO: Switch to linked list
             if (parent->children_capacity == 0)
                 parent->children_capacity = 1;
             else
@@ -69,26 +71,26 @@ struct Directory *create_directory(char *path, struct Directory *parent) {
                         parent->children_capacity * sizeof(struct Directory *));
         }
 
-        parent->children[parent->number_subdir++] = new_directory;
+        parent->children[parent->number_subdir++] = new_dir;
     }
 
-    return new_directory;
+    return new_dir;
 }
 
-void *traverse(void *args) {
-    char *path = ((struct TraverseArgs *)args)->path;
-    struct Job *job = ((struct TraverseArgs *)args)->job;
+void *traverse(void *vargs) {
+    struct TraverseArgs *args = (struct TraverseArgs *)vargs;
+    char *path = args->path;
+    struct Job *job = args->job;
+
     job->status = JOB_STATUS_IN_PROGRESS;
 
-    struct Directory *current_directory = create_directory(path, NULL);
-    job->root = current_directory;
+    struct Directory *current_dir = create_directory(path, NULL);
+    job->root = current_dir;
 
     FTS *ftsp;
     FTSENT *p, *chp;
 
-    char **fts_args = malloc(2 * sizeof(char *));
-    fts_args[0] = path;
-    fts_args[1] = NULL;
+    char *fts_args[] = {path, NULL};
 
     if ((ftsp = fts_open(fts_args, FTS_NOCHDIR | FTS_PHYSICAL, NULL)) == NULL) {
         perror("fts_open");
@@ -98,20 +100,21 @@ void *traverse(void *args) {
     int is_root = 1;
     while ((p = fts_read(ftsp)) != NULL) {
         check_suspend(job);
+        // TODO: Check if job was removed as well
 
         switch (p->fts_info) {
         case FTS_F:
             // It's a file, add its size to the total
-            current_directory->bytes += p->fts_statp->st_size;
-            current_directory->number_files += 1;
+            current_dir->bytes += p->fts_statp->st_size;
+            current_dir->number_files += 1;
             break;
         case FTS_D:
             // It's a directory, traverse its contents
 
             // if it's the root directory, we shouldn't create it again
             if (!is_root) {
-                current_directory = create_directory(p->fts_path, current_directory);
-                current_directory->bytes += p->fts_statp->st_size;
+                current_dir = create_directory(p->fts_path, current_dir);
+                current_dir->bytes += p->fts_statp->st_size;
             } else {
                 is_root = 0;
             }
@@ -123,9 +126,9 @@ void *traverse(void *args) {
             break;
         default:
             // if it's the root directory, we shouldn't go to its parent
-            if (current_directory->parent != NULL) {
-                current_directory->parent->bytes += current_directory->bytes;
-                current_directory = current_directory->parent;
+            if (current_dir->parent != NULL) {
+                current_dir->parent->bytes += current_dir->bytes;
+                current_dir = current_dir->parent;
             }
             break;
         }
@@ -140,41 +143,41 @@ void *traverse(void *args) {
     return 0;
 }
 
-int pause_job(struct Job *job_to_pause) {
-    pthread_mutex_t *status_mutex = &job_to_pause->status_mutex;
+int pause_job(struct Job *job) {
+    pthread_mutex_t *status_mutex = &job->status_mutex;
 
     pthread_mutex_lock(status_mutex);
-    if (job_to_pause->status != JOB_STATUS_IN_PROGRESS) {
+    if (job->status != JOB_STATUS_IN_PROGRESS) {
         pthread_mutex_unlock(status_mutex);
         return -1;
     }
-    job_to_pause->status = JOB_STATUS_PAUSED;
+    job->status = JOB_STATUS_PAUSED;
     pthread_mutex_unlock(status_mutex);
 
     return 0;
 }
 
-int resume_job(struct Job *job_to_resume) {
-    pthread_mutex_t *status_mutex = &job_to_resume->status_mutex;
-    pthread_cond_t *resume_cond = &job_to_resume->mutex_resume_cond;
+int resume_job(struct Job *job) {
+    pthread_mutex_t *status_mutex = &job->status_mutex;
+    pthread_cond_t *resume_cond = &job->mutex_resume_cond;
 
     pthread_mutex_lock(status_mutex);
-    if (job_to_resume->status != JOB_STATUS_PAUSED) {
+    if (job->status != JOB_STATUS_PAUSED) {
         pthread_mutex_unlock(status_mutex);
         return -1;
     }
-    job_to_resume->status = JOB_STATUS_IN_PROGRESS;
+    job->status = JOB_STATUS_IN_PROGRESS;
     pthread_cond_broadcast(resume_cond);
     pthread_mutex_unlock(status_mutex);
 
     return 0;
 }
 
-int remove_job(struct Job *job_to_remove) {
-    pthread_mutex_t *status_mutex = &job_to_remove->status_mutex;
+int remove_job(struct Job *job) {
+    pthread_mutex_t *status_mutex = &job->status_mutex;
 
     pthread_mutex_lock(status_mutex);
-    job_to_remove->status = JOB_STATUS_REMOVED;
+    job->status = JOB_STATUS_REMOVED;
     pthread_mutex_unlock(status_mutex);
 
     return 0;
