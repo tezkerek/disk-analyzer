@@ -1,42 +1,15 @@
 #ifndef THREAD_UTILS_HEADER
 #define THREAD_UTILS_HEADER
 
+#include "directory.h"
 #include <errno.h>
-#include <libgen.h>
 #include <pthread.h>
-#include <sched.h>
 #include <stdint.h>
 
 #define JOB_STATUS_IN_PROGRESS 0
 #define JOB_STATUS_REMOVED     1
 #define JOB_STATUS_PAUSED      2
 #define JOB_STATUS_DONE        3
-
-struct Directory;
-
-struct DirList {
-    struct Directory *dir;
-    struct DirList *next;
-};
-
-/**
- * Push dir to the front of the list and return the new head.
- */
-struct DirList *dirlist_push_front(struct DirList *head, struct Directory *dir);
-
-struct Directory {
-    char *path;
-    struct Directory *parent;
-    struct DirList *subdirs;
-    int64_t bytes;
-};
-
-/**
- * Initializes a Directory for the given path.
- */
-int directory_init(struct Directory *dir, const char *path);
-
-void directory_destroy(struct Directory *dir);
 
 struct Job {
     pthread_t thread;
@@ -60,9 +33,10 @@ struct TraverseArgs {
 };
 
 /**
- * Creates Job object and starts analysing directory
+ * Traverses a directory, measuring its size on disk.
+ * Receives a TraverseArgs struct as argument.
  */
-void *traverse(void *path);
+void *traverse(void *vargs);
 
 int pause_job(struct Job *job);
 
