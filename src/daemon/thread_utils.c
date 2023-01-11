@@ -121,8 +121,14 @@ void *traverse(void *vargs) {
 
             chp = fts_children(ftsp, 0);
             if (chp == NULL) {
+                if (errno != 0) {
+                    perror("fts_children");
+                }
                 break;
             }
+            break;
+        case FTS_NS:
+            fprintf(stderr, "fts_read: no stat for %s\n", p->fts_path);
             break;
         default:
             // if it's the root directory, we shouldn't go to its parent
@@ -132,6 +138,10 @@ void *traverse(void *vargs) {
             }
             break;
         }
+    }
+
+    if (errno != 0) {
+        perror("fts_read");
     }
 
     fts_close(ftsp);
