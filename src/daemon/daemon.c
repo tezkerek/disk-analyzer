@@ -1,6 +1,6 @@
+#include "job.h"
 #include <common/ipc.h>
 #include <common/utils.h>
-#include <daemon/thread_utils.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>

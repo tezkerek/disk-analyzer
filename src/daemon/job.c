@@ -1,42 +1,13 @@
+#include "job.h"
+#include "directory.h"
 #include <common/utils.h>
-#include <daemon/thread_utils.h>
 #include <errno.h>
 #include <fts.h>
-#include <libgen.h>
-#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-struct DirList *dirlist_push_front(struct DirList *head, struct Directory *dir) {
-    struct DirList *new_node = da_malloc(sizeof(*new_node));
-    new_node->dir = dir;
-    new_node->next = NULL;
-
-    if (head == NULL) {
-        head = new_node;
-    } else {
-        new_node->next = head;
-    }
-}
-
-void dirlist_destroy(struct DirList *head) {
-    while (head != NULL) {
-        directory_destroy(head->dir);
-        free(head->dir);
-        head = head->next;
-    }
-}
-
-void directory_destroy(struct Directory *dir) {
-    if (dir == NULL)
-        return;
-
-    free(dir->path);
-    dirlist_destroy(dir->subdirs);
-}
 
 int job_init(struct Job *job) {
     pthread_mutex_init(&job->status_mutex, NULL);
@@ -65,16 +36,6 @@ void check_suspend(struct Job *job_to_check) {
     while (job_to_check->status == JOB_STATUS_PAUSED)
         pthread_cond_wait(resume_cond, status_mutex);
     pthread_mutex_unlock(status_mutex);
-}
-
-int directory_init(struct Directory *dir, const char *path) {
-    dir->path = da_malloc((strlen(path) + 1) * sizeof(*dir->path));
-    strcpy(dir->path, path);
-    dir->parent = NULL;
-    dir->subdirs = NULL;
-    dir->bytes = 0;
-
-    return 0;
 }
 
 void *traverse(void *vargs) {
