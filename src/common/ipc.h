@@ -42,4 +42,9 @@ void build_ipc_msg(int8_t cmd,
                    const struct ByteArray *payload,
                    struct ByteArray *msg);
 
+/**
+ * A read() that exits on error.
+ */
+void saferead(int fd, void *buf, int count);
+
 #endif

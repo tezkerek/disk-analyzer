@@ -71,3 +71,10 @@ void build_ipc_msg(int8_t cmd,
 
     strncpy(msgptr, payload->bytes, min(payload->len, msg->len));
 }
+
+void saferead(int fd, void *buf, int count) {
+    if (read(fd, buf, count) < 0) {
+        perror("saferead");
+        exit(EXIT_FAILURE);
+    }
+}

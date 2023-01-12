@@ -1,6 +1,6 @@
 SHELL=/bin/bash
 CC = gcc
-CFLAGS = -I $(SRC_DIR)
+CFLAGS = -I $(SRC_DIR) -D_XOPEN_SOURCE=500
 
 SRC_DIR = src
 BUILD_DIR = build
