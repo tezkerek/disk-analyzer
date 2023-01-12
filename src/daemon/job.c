@@ -10,9 +10,12 @@
 #include <unistd.h>
 
 int job_init(struct Job *job) {
+    job->priority = 2;
+    job->status = JOB_STATUS_IN_PROGRESS;
     pthread_mutex_init(&job->status_mutex, NULL);
     job->total_dir_count = 0;
     job->total_file_count = 0;
+    job->total_path_len = 0;
 
     return 0;
 }
@@ -43,9 +46,12 @@ void *traverse(void *vargs) {
     char *path = args->path;
     struct Job *job = args->job;
 
+    size_t path_len = strlen(path);
+
     job->status = JOB_STATUS_IN_PROGRESS;
     job->total_dir_count = 0;
     job->total_file_count = 0;
+    job->total_path_len = path_len;
 
     // Create root dir
     struct Directory *current_dir = da_malloc(sizeof(*current_dir));
@@ -61,6 +67,8 @@ void *traverse(void *vargs) {
         perror("fts_open");
         return NULL;
     }
+
+    size_t path_prefix_len = path_len + 1;
 
     int is_root = 1;
     while ((p = fts_read(ftsp)) != NULL) {
@@ -80,9 +88,14 @@ void *traverse(void *vargs) {
             if (is_root) {
                 is_root = 0;
             } else {
-                // Create a new directory as subdir of the current directory
+                // Create a new directory
                 struct Directory *new_dir = da_malloc(sizeof(*new_dir));
-                directory_init(new_dir, p->fts_path);
+
+                // Use the path relative to the job path
+                const char *relative_path = p->fts_path + path_prefix_len;
+                directory_init(new_dir, relative_path);
+
+                // Add it as a subdir of the current directory
                 current_dir->subdirs =
                     dirlist_push_front(current_dir->subdirs, new_dir);
 
@@ -90,6 +103,7 @@ void *traverse(void *vargs) {
 
                 current_dir = new_dir;
                 job->total_dir_count += 1;
+                job->total_path_len += strlen(relative_path);
             }
 
             break;

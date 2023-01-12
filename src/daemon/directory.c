@@ -45,3 +45,35 @@ void directory_destroy(struct Directory *dir) {
     free(dir->path);
     dirlist_destroy(dir->subdirs);
 }
+
+/**
+ * Writes dir to buf and returns a pointer to continue writing.
+ */
+char *serialize_helper(struct Directory *root, char *buf) {
+    if (root == NULL)
+        return buf;
+
+    int64_t path_len = strlen(root->path);
+    char *ptr = buf;
+
+    memcpy(ptr, &path_len, sizeof(path_len));
+    ptr += sizeof(path_len);
+
+    memcpy(ptr, root->path, path_len);
+    ptr += path_len;
+
+    memcpy(ptr, &root->bytes, sizeof(root->bytes));
+    ptr += sizeof(root->bytes);
+
+    struct DirList *head = root->subdirs;
+    while (head != NULL) {
+        ptr = serialize_helper(head->dir, ptr);
+        head = head->next;
+    }
+
+    return ptr;
+}
+
+void directory_serialize(struct Directory *root, char *buf) {
+    serialize_helper(root, buf);
+}

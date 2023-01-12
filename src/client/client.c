@@ -35,6 +35,63 @@ int send_ipc_msg(int serverfd, int8_t cmd, const struct ByteArray *payload) {
     return written_bytes;
 }
 
+void handle_print_reply(int serverfd) {
+    int64_t entry_count;
+    saferead(serverfd, &entry_count, sizeof(entry_count));
+
+    // TODO: Pretty print
+    for (int64_t i = 0; i < entry_count; ++i) {
+        int64_t path_len;
+        saferead(serverfd, &path_len, sizeof(path_len));
+
+        char *path = da_malloc((path_len + 1) * sizeof(*path));
+        saferead(serverfd, path, path_len);
+        // Null terminate
+        path[path_len] = 0;
+
+        int64_t dir_size;
+        saferead(serverfd, &dir_size, sizeof(dir_size));
+
+        printf("%s %lu\n", path, dir_size);
+    }
+}
+
+void handle_info_reply(int serverfd) {
+    int64_t job_id;
+    saferead(serverfd, &job_id, sizeof(job_id));
+
+    int8_t priority;
+    saferead(serverfd, &priority, sizeof(priority));
+
+    int64_t path_len;
+    saferead(serverfd, &path_len, sizeof(path_len));
+
+    char *path = da_malloc((path_len + 1) * sizeof(*path));
+    saferead(serverfd, path, path_len);
+    // Null terminate
+    path[path_len] = 0;
+
+    int8_t progress;
+    saferead(serverfd, &progress, sizeof(progress));
+
+    int8_t status;
+    saferead(serverfd, &status, sizeof(status));
+
+    int64_t file_count;
+    saferead(serverfd, &file_count, sizeof(file_count));
+
+    int64_t dir_count;
+    saferead(serverfd, &dir_count, sizeof(dir_count));
+
+    // TODO: print header, align columns
+    printf("%lu %d %s %lu files, %lu dirs\n",
+           job_id,
+           priority,
+           path,
+           file_count,
+           dir_count);
+}
+
 int handle_reply(int8_t cmd, int serverfd) {
     int8_t code;
     saferead(serverfd, &code, sizeof(code));
@@ -44,38 +101,15 @@ int handle_reply(int8_t cmd, int serverfd) {
         if (code == 0) {
             int64_t job_id;
             saferead(serverfd, &job_id, sizeof(job_id));
-            printf("Analysis task with ID %ld\n", job_id);
+            printf("New analysis task with ID %ld\n", job_id);
         }
     } else if (cmd == CMD_INFO) {
         if (code == 0) {
-            int64_t job_id;
-            saferead(serverfd, &job_id, sizeof(job_id));
-
-            int8_t priority;
-            saferead(serverfd, &priority, sizeof(priority));
-
-            int64_t path_len;
-            saferead(serverfd, &path_len, sizeof(path_len));
-
-            char *path = da_malloc((path_len + 1) * sizeof(*path));
-            saferead(serverfd, path, path_len);
-            // Null terminate
-            path[path_len] = 0;
-
-            int8_t progress;
-            saferead(serverfd, &progress, sizeof(progress));
-
-            int8_t status;
-            saferead(serverfd, &status, sizeof(status));
-
-            int64_t file_count;
-            saferead(serverfd, &file_count, sizeof(file_count));
-
-            int64_t dir_count;
-            saferead(serverfd, &dir_count, sizeof(dir_count));
-
-            // TODO: print header, align columns
-            printf("%lu %d %s %lu files, %lu dirs\n", job_id, priority, path, file_count, dir_count);
+            handle_info_reply(serverfd);
+        }
+    } else if (cmd == CMD_PRINT) {
+        if (code == 0) {
+            handle_print_reply(serverfd);
         }
     }
     return 0;

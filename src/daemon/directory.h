@@ -1,6 +1,7 @@
 #ifndef DIRECTORY_HEADER
 #define DIRECTORY_HEADER
 
+#include <common/utils.h>
 #include <stdint.h>
 
 struct DirList {
@@ -31,5 +32,7 @@ struct Directory {
 int directory_init(struct Directory *dir, const char *path);
 
 void directory_destroy(struct Directory *dir);
+
+void directory_serialize(struct Directory *root, char *buf);
 
 #endif

@@ -15,11 +15,12 @@ struct Job {
     pthread_t thread;
     int8_t priority;
     int8_t status;
-    pthread_mutex_t status_mutex;     // used for accessing `status`
-    pthread_cond_t mutex_resume_cond; // used for safely locking a thread
-    struct Directory *root;           // children directories
-    int64_t total_dir_count;
-    int64_t total_file_count;
+    pthread_mutex_t status_mutex;     /// Lock for `status`
+    pthread_cond_t mutex_resume_cond; /// Condition for resuming job
+    struct Directory *root;           /// Root directory of job
+    int64_t total_dir_count;          /// Number of all subdirs
+    int64_t total_file_count;         /// Number of all files
+    int64_t total_path_len;           /// Sum of lengths of all paths
 };
 
 /**
