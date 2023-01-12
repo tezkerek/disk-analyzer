@@ -47,9 +47,30 @@ int bind_socket() {
     return fd;
 }
 
-void pretty_print_job() {}
+int8_t get_job_results(struct Job *job, struct ByteArray *result) {
+    // TODO: Check that job is done first
 
-int print_done_jobs() {}
+    int8_t exit_code = 0;
+    int64_t entry_count = job->total_dir_count + 1;
+
+    // Calculate necessary space for the serialization
+    size_t serialized_len =
+        sizeof(exit_code) + sizeof(entry_count) + job->total_path_len +
+        entry_count * (sizeof(int64_t) + sizeof(job->root->bytes));
+
+    bytearray_init(result, serialized_len);
+
+    char *ptr = result->bytes;
+    memcpy(ptr, &exit_code, sizeof(exit_code));
+    ptr += sizeof(exit_code);
+
+    memcpy(ptr, &job->total_dir_count, sizeof(entry_count));
+    ptr += sizeof(entry_count);
+
+    directory_serialize(job->root, ptr);
+
+    return 0;
+}
 
 int get_job_info(struct Job *job, struct ByteArray *result) {
     // TODO: Progress heuristic
@@ -185,8 +206,6 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
         if (exit_code == 0) {
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
         }
-    } else if (cmd == CMD_PRINT) {
-        print_done_jobs();
     } else if (cmd == CMD_LIST) {
         list_jobs();
     } else {
@@ -217,6 +236,8 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
             get_job_info(job, reply);
             memcpy(reply->bytes, &exit_code, sizeof(exit_code));
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
+        } else if (cmd == CMD_PRINT) {
+            get_job_results(job, reply);
         } else {
             return -1;
         }
