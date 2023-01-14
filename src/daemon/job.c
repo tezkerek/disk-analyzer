@@ -84,7 +84,7 @@ void *traverse(void *vargs) {
         if (check_suspend(job) == 1) {
             fts_close(ftsp);
             job_destroy(job);
-            
+
             return 0;
         }
         // TODO: Check if job was removed as well
@@ -139,7 +139,6 @@ void *traverse(void *vargs) {
     }
 
     fts_close(ftsp);
-    job_destroy(job);
     job->status = JOB_STATUS_DONE;
 
     return 0;
