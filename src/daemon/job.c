@@ -31,7 +31,7 @@ void job_destroy(struct Job *job) {
  * Suspends the caller thread if variable is set.
  * Call on safe points where thread can be suspended.
  * Returns 1 of the job needs to be removed
- * Returns 0 if the job should be continued 
+ * Returns 0 if the job should be continued
  */
 int check_suspend(struct Job *job_to_check) {
     pthread_mutex_t *status_mutex = &job_to_check->status_mutex;
@@ -80,9 +80,12 @@ void *traverse(void *vargs) {
 
     int is_root = 1;
     while ((p = fts_read(ftsp)) != NULL) {
+
         if (check_suspend(job) == 1) {
             fts_close(ftsp);
             job_destroy(job);
+            
+            return 0;
         }
         // TODO: Check if job was removed as well
 
