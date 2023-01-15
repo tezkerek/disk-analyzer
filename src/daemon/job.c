@@ -30,15 +30,23 @@ void job_destroy(struct Job *job) {
 /**
  * Suspends the caller thread if variable is set.
  * Call on safe points where thread can be suspended.
+ * Returns 1 of the job needs to be removed
+ * Returns 0 if the job should be continued
  */
-void check_suspend(struct Job *job_to_check) {
+int check_suspend(struct Job *job_to_check) {
     pthread_mutex_t *status_mutex = &job_to_check->status_mutex;
     pthread_cond_t *resume_cond = &job_to_check->mutex_resume_cond;
 
     pthread_mutex_lock(status_mutex);
     while (job_to_check->status == JOB_STATUS_PAUSED)
         pthread_cond_wait(resume_cond, status_mutex);
+
+    if (job_to_check->status == JOB_STATUS_REMOVED) {
+        pthread_mutex_unlock(status_mutex);
+        return 1;
+    }
     pthread_mutex_unlock(status_mutex);
+    return 0;
 }
 
 void *traverse(void *vargs) {
@@ -72,7 +80,13 @@ void *traverse(void *vargs) {
 
     int is_root = 1;
     while ((p = fts_read(ftsp)) != NULL) {
-        check_suspend(job);
+
+        if (check_suspend(job) == 1) {
+            fts_close(ftsp);
+            job_destroy(job);
+
+            return 0;
+        }
         // TODO: Check if job was removed as well
 
         switch (p->fts_info) {
@@ -125,10 +139,7 @@ void *traverse(void *vargs) {
     }
 
     fts_close(ftsp);
-    if (job->status == JOB_STATUS_REMOVED) {
-        job_destroy(job);
-    } else
-        job->status = JOB_STATUS_DONE;
+    job->status = JOB_STATUS_DONE;
 
     return 0;
 }
