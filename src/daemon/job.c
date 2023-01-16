@@ -1,6 +1,7 @@
 #include "job.h"
 #include "directory.h"
 #include <common/utils.h>
+#include <common/ipc.h>
 #include <errno.h>
 #include <fts.h>
 #include <stdio.h>
