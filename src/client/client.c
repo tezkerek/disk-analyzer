@@ -40,14 +40,14 @@ void handle_print_reply(int serverfd) {
     saferead(serverfd, &entry_count, sizeof(entry_count));
 
     // TODO: Pretty print
-    char* last_dir;
+    char *last_dir;
     last_dir = malloc(1);
     int64_t total_size = 0;
 
-const char* units[] = {"B", "KB", "MB", "GB", "TB"};
-const int UNIT_COUNT = sizeof(units) / sizeof(units[0]);
+    const char *units[] = {"B", "KB", "MB", "GB", "TB"};
+    const int UNIT_COUNT = sizeof(units) / sizeof(units[0]);
 
-for (int64_t i = 0; i < entry_count; ++i) {
+    for (int64_t i = 0; i < entry_count; ++i) {
         int64_t path_len;
         saferead(serverfd, &path_len, sizeof(path_len));
 
@@ -59,40 +59,52 @@ for (int64_t i = 0; i < entry_count; ++i) {
         int64_t dir_size;
         saferead(serverfd, &dir_size, sizeof(dir_size));
 
-        int poz = -1;
-        int len = strlen(path);
-        for(int j = 0; j < len ; j++){
-            if(path[j] == '/'){
+        int32_t poz = -1;
+        int32_t len = strlen(path);
+        for (int32_t j = 0; j < len; j++) {
+            if (path[j] == '/') {
                 poz = j;
                 break;
             }
         }
-        if(poz == -1){
+        if (poz == -1) {
             poz = strlen(path);
         }
-        char* dir;
-        dir = malloc(poz+1);
+        char *dir;
+        dir = malloc(poz + 1);
         strncpy(dir, path, poz);
-        if(strcmp(dir, last_dir) != 0){
-            if(i != 0){    
+        if (strcmp(dir, last_dir) != 0) {
+            if (i != 0) {
                 printf("|\n");
             }
             free(last_dir);
-            last_dir = malloc(strlen(dir)+1);
+            last_dir = malloc(strlen(dir) + 1);
             strncpy(last_dir, dir, strlen(dir));
         }
-        double size = (double) dir_size;
-        int unit_index = 0;
+        double size = (double)dir_size;
+        int32_t unit_index = 0;
         while (size >= 1024 && unit_index < UNIT_COUNT - 1) {
             size /= 1024;
             unit_index++;
         }
-        if(i != 0){
-            printf("|-/%s %.2lf%% %.2lf %s\n", path, ((double)dir_size)/total_size*100, size, units[unit_index]);
-        }
-        else{
-            printf("%s %.2lf%%% .2lf %s\n", path, 100.00, size, units[unit_index]);
-            //total_size = dir_size;
+        if (i != 0) {
+            printf("|-/%s %.2lf%% %.2lf %s ",
+                   path,
+                   ((double)dir_size) / total_size * 100,
+                   size,
+                   units[unit_index]);
+                   int aux = (int)(((double)dir_size) / total_size * 40);
+                   for (int j = 0; j < aux; j++){
+                        printf("#");
+                   }
+                   printf("\n");
+        } else {
+            printf("%s %.2lf%%% .2lf %s", path, 100.00, size, units[unit_index]);
+            for(int j = 0 ; j < 40; j++){
+                printf("#");
+            }
+            printf("\n");
+            // total_size = dir_size;
             total_size = 100000;
         }
         free(dir);
@@ -128,18 +140,15 @@ void handle_info_reply(int serverfd) {
     saferead(serverfd, &dir_count, sizeof(dir_count));
 
     // TODO: print header, align columns
-    char* status_string;
+    char *status_string;
     status_string = malloc(12);
-    if (status == JOB_STATUS_IN_PROGRESS){
+    if (status == JOB_STATUS_IN_PROGRESS) {
         strncpy(status_string, "In progress", 12);
-    }
-    else if (status == JOB_STATUS_DONE){
+    } else if (status == JOB_STATUS_DONE) {
         strncpy(status_string, "Done", 5);
-    }
-    else if (status == JOB_STATUS_PAUSED){
+    } else if (status == JOB_STATUS_PAUSED) {
         strncpy(status_string, "Paused", 7);
-    }
-    else if (status == JOB_STATUS_REMOVED){
+    } else if (status == JOB_STATUS_REMOVED) {
         strncpy(status_string, "Removed", 8);
     }
 
@@ -152,6 +161,62 @@ void handle_info_reply(int serverfd) {
            dir_count);
 
     free(status_string);
+}
+
+void handle_list_reply(int serverfd) {
+    int64_t entry_count;
+    saferead(serverfd, &entry_count, sizeof(entry_count));
+
+    for (int64_t i = 0; i < entry_count; ++i) {
+        int64_t job_id;
+        saferead(serverfd, &job_id, sizeof(job_id));
+
+        int8_t priority;
+        saferead(serverfd, &priority, sizeof(priority));
+
+        int64_t path_len;
+        saferead(serverfd, &path_len, sizeof(path_len));
+
+        char *path = da_malloc((path_len + 1) * sizeof(*path));
+        saferead(serverfd, path, path_len);
+        // Null terminate
+        path[path_len] = 0;
+
+        int8_t progress;
+        saferead(serverfd, &progress, sizeof(progress));
+
+        int8_t status;
+        saferead(serverfd, &status, sizeof(status));
+
+        int64_t file_count;
+        saferead(serverfd, &file_count, sizeof(file_count));
+
+        int64_t dir_count;
+        saferead(serverfd, &dir_count, sizeof(dir_count));
+
+        // TODO: print header, align columns
+        char *status_string;
+        status_string = malloc(12);
+        if (status == JOB_STATUS_IN_PROGRESS) {
+            strncpy(status_string, "In progress", 12);
+        } else if (status == JOB_STATUS_DONE) {
+            strncpy(status_string, "Done", 5);
+        } else if (status == JOB_STATUS_PAUSED) {
+            strncpy(status_string, "Paused", 7);
+        } else if (status == JOB_STATUS_REMOVED) {
+            strncpy(status_string, "Removed", 8);
+        }
+
+        printf("Id: %lu, Priority: %d %s \nstatus: %s, %lu files, %lu dirs\n",
+               job_id,
+               priority,
+               path,
+               status_string,
+               file_count,
+               dir_count);
+
+        free(status_string);
+    }
 }
 
 int handle_reply(int8_t cmd, int serverfd) {
