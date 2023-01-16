@@ -75,7 +75,7 @@ void handle_print_reply(int serverfd) {
         strncpy(dir, path, poz);
         if (strcmp(dir, last_dir) != 0) {
             if (i != 0) {
-                printf("|\n");
+                printf("│\n");
             }
             free(last_dir);
             last_dir = malloc(strlen(dir) + 1);
@@ -87,20 +87,31 @@ void handle_print_reply(int serverfd) {
             size /= 1024;
             unit_index++;
         }
-        if (i != 0) {
-            printf("|-/%s %.2lf%% %.2lf %s ",
+        if (i != 0 && i != entry_count - 1) {
+            printf("├─/%s %.2lf%% %.2lf %s ",
                    path,
                    ((double)dir_size) / total_size * 100,
                    size,
                    units[unit_index]);
-                   int aux = (int)(((double)dir_size) / total_size * 40);
-                   for (int j = 0; j < aux; j++){
-                        printf("#");
-                   }
-                   printf("\n");
+            int aux = (int)(((double)dir_size) / total_size * 40);
+            for (int j = 0; j < aux; j++) {
+                printf("#");
+            }
+            printf("\n");
+        } else if (i == entry_count - 1) {
+            printf("└─/%s %.2lf%% %.2lf %s ",
+                   path,
+                   ((double)dir_size) / total_size * 100,
+                   size,
+                   units[unit_index]);
+            int aux = (int)(((double)dir_size) / total_size * 40);
+            for (int j = 0; j < aux; j++) {
+                printf("#");
+            }
+            printf("\n");
         } else {
-            printf("%s %.2lf%%% .2lf %s", path, 100.00, size, units[unit_index]);
-            for(int j = 0 ; j < 40; j++){
+            printf("%s %.2lf%%% .2lf %s ", path, 100.00, size, units[unit_index]);
+            for (int j = 0; j < 40; j++) {
                 printf("#");
             }
             printf("\n");
