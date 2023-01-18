@@ -7,6 +7,16 @@ int min(int a, int b) { return a < b ? a : b; }
 
 int max(int a, int b) { return a > b ? a : b; }
 
+int fputs_repeated(const char *restrict str, FILE *restrict stream, int count) {
+    for (int i = 0; i < count; i++) {
+        if (fputs("#", stdout) == EOF) {
+            return EOF;
+        }
+    }
+
+    return 1;
+}
+
 /**
  * malloc that exits on error
  */

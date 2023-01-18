@@ -39,21 +39,102 @@ void handle_print_reply(int serverfd) {
     int64_t entry_count;
     saferead(serverfd, &entry_count, sizeof(entry_count));
 
-    // TODO: Pretty print
+    int64_t total_size = 0;
+
+    static const char *UNITS[] = {"B", "KB", "MB", "GB", "TB"};
+    const int UNIT_COUNT = sizeof(UNITS) / sizeof(UNITS[0]);
+
+    char *path = NULL;
+    size_t path_bufsize = 0;
+
+    char *last_top_dir = NULL;
+    size_t last_top_dir_bufsize = 0;
+
     for (int64_t i = 0; i < entry_count; ++i) {
+        char *branch_symbol;
+        if (i == 0) {
+            branch_symbol = "";
+        } else if (i == entry_count - 1) {
+            // Symbol for the last entry
+            branch_symbol = "└─ /";
+        } else {
+            // Symbol for middle entries
+            branch_symbol = "├─ /";
+        }
+
         int64_t path_len;
         saferead(serverfd, &path_len, sizeof(path_len));
 
-        char *path = da_malloc((path_len + 1) * sizeof(*path));
+        if (path_len + 1 > path_bufsize) {
+            path_bufsize = path_len + 1;
+            path = da_malloc(path_bufsize * sizeof(*path));
+        }
         saferead(serverfd, path, path_len);
         // Null terminate
         path[path_len] = 0;
 
-        int64_t dir_size;
-        saferead(serverfd, &dir_size, sizeof(dir_size));
+        int64_t dir_bytes;
+        saferead(serverfd, &dir_bytes, sizeof(dir_bytes));
 
-        printf("%s %lu\n", path, dir_size);
+        if (i == 0) {
+            total_size = dir_bytes;
+        }
+
+        // Find the top dir (first in the path)
+        const char *first_path_sep = strchr(path, '/');
+        size_t top_dir_len;
+        if (first_path_sep == NULL) {
+            // The entire path is the dir
+            top_dir_len = path_len;
+        } else {
+            top_dir_len = first_path_sep - path;
+        }
+
+        if (last_top_dir == NULL || strncmp(path, last_top_dir, top_dir_len) != 0) {
+            // Top dir changed
+            if (i > 0) {
+                // Output a newline when the top dir changes
+                puts("│");
+            }
+
+            // Realloc last_top_dir if needed
+            if (top_dir_len + 1 > last_top_dir_bufsize) {
+                free(last_top_dir);
+                last_top_dir_bufsize = top_dir_len + 1;
+                last_top_dir =
+                    da_malloc(last_top_dir_bufsize * sizeof(*last_top_dir));
+            }
+
+            // Update last_dir
+            strncpy(last_top_dir, path, top_dir_len);
+        }
+
+        // Compute human size and the unit
+        double human_size = (double)dir_bytes;
+        int32_t unit_index = 0;
+        while (human_size >= 1024 && unit_index < UNIT_COUNT - 1) {
+            human_size /= 1024;
+            unit_index++;
+        }
+
+        // Compute percentage and the bar width
+        double ratio = ((double)dir_bytes) / total_size;
+        double percentage = ratio * 100;
+        int bar_width = ratio * 40;
+
+        // Print line
+        printf("%s%s %.2lf%% %.2lf %s ",
+               branch_symbol,
+               path,
+               percentage,
+               human_size,
+               UNITS[unit_index]);
+        fputs_repeated("#", stdout, bar_width);
+        fputs("\n", stdout);
     }
+
+    free(path);
+    free(last_top_dir);
 }
 
 void handle_info_reply(int serverfd) {
@@ -84,12 +165,90 @@ void handle_info_reply(int serverfd) {
     saferead(serverfd, &dir_count, sizeof(dir_count));
 
     // TODO: print header, align columns
-    printf("%lu %d %s %lu files, %lu dirs\n",
+    const char *status_string;
+    if (status == JOB_STATUS_IN_PROGRESS) {
+        status_string = "In progress";
+    } else if (status == JOB_STATUS_DONE) {
+        status_string = "Done";
+    } else if (status == JOB_STATUS_PAUSED) {
+        status_string = "Paused";
+    } else if (status == JOB_STATUS_REMOVED) {
+        status_string = "Removed";
+    }
+
+    printf("%-3s %-3s  %-*s %-9s %-*s  %s\n",
+           "ID",
+           "Pri",
+           (int)path_len,
+           "Path",
+           "Progress",
+           (int)strlen(status_string),
+           "Status",
+           "Details");
+    printf("%-3lu %-3d %s  %d%%       %-6s  %lu files, %lu dirs\n",
            job_id,
            priority,
            path,
+           progress,
+           status_string,
            file_count,
            dir_count);
+}
+
+void handle_list_reply(int serverfd) {
+    int64_t entry_count;
+    saferead(serverfd, &entry_count, sizeof(entry_count));
+
+    for (int64_t i = 0; i < entry_count; ++i) {
+        int64_t job_id;
+        saferead(serverfd, &job_id, sizeof(job_id));
+
+        int8_t priority;
+        saferead(serverfd, &priority, sizeof(priority));
+
+        int64_t path_len;
+        saferead(serverfd, &path_len, sizeof(path_len));
+
+        char *path = da_malloc((path_len + 1) * sizeof(*path));
+        saferead(serverfd, path, path_len);
+        // Null terminate
+        path[path_len] = 0;
+
+        int8_t progress;
+        saferead(serverfd, &progress, sizeof(progress));
+
+        int8_t status;
+        saferead(serverfd, &status, sizeof(status));
+
+        int64_t file_count;
+        saferead(serverfd, &file_count, sizeof(file_count));
+
+        int64_t dir_count;
+        saferead(serverfd, &dir_count, sizeof(dir_count));
+
+        // TODO: print header, align columns
+        char *status_string;
+        status_string = da_malloc(12);
+        if (status == JOB_STATUS_IN_PROGRESS) {
+            strncpy(status_string, "In progress", 12);
+        } else if (status == JOB_STATUS_DONE) {
+            strncpy(status_string, "Done", 5);
+        } else if (status == JOB_STATUS_PAUSED) {
+            strncpy(status_string, "Paused", 7);
+        } else if (status == JOB_STATUS_REMOVED) {
+            strncpy(status_string, "Removed", 8);
+        }
+
+        printf("Id: %lu, Priority: %d %s \nstatus: %s, %lu files, %lu dirs\n",
+               job_id,
+               priority,
+               path,
+               status_string,
+               file_count,
+               dir_count);
+
+        free(status_string);
+    }
 }
 
 int handle_reply(int8_t cmd, int serverfd) {

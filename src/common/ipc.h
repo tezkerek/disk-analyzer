@@ -16,6 +16,11 @@
 #define CMD_LIST    6
 #define CMD_PRINT   7
 
+#define JOB_STATUS_IN_PROGRESS 0
+#define JOB_STATUS_REMOVED     1
+#define JOB_STATUS_PAUSED      2
+#define JOB_STATUS_DONE        3
+
 /**
  * Initializes the socket and the address struct.
  * Returns a file descriptor to the socket.

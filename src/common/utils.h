@@ -3,10 +3,16 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 int min(int a, int b);
 
 int max(int a, int b);
+
+/**
+ * Print `str` `count` times to the stream.
+ */
+int fputs_repeated(const char *restrict str, FILE *restrict stream, int count);
 
 /**
  * malloc that exits on error
