@@ -165,27 +165,34 @@ void handle_info_reply(int serverfd) {
     saferead(serverfd, &dir_count, sizeof(dir_count));
 
     // TODO: print header, align columns
-    char *status_string;
-    status_string = da_malloc(12);
+    const char *status_string;
     if (status == JOB_STATUS_IN_PROGRESS) {
-        strncpy(status_string, "In progress", 12);
+        status_string = "In progress";
     } else if (status == JOB_STATUS_DONE) {
-        strncpy(status_string, "Done", 5);
+        status_string = "Done";
     } else if (status == JOB_STATUS_PAUSED) {
-        strncpy(status_string, "Paused", 7);
+        status_string = "Paused";
     } else if (status == JOB_STATUS_REMOVED) {
-        strncpy(status_string, "Removed", 8);
+        status_string = "Removed";
     }
 
-    printf("Id: %lu, Priority: %d %s \nstatus: %s, %lu files, %lu dirs\n",
+    printf("%-3s %-3s  %-*s %-9s %-*s  %s\n",
+           "ID",
+           "Pri",
+           (int)path_len,
+           "Path",
+           "Progress",
+           (int)strlen(status_string),
+           "Status",
+           "Details");
+    printf("%-3lu %-3d %s  %d%%       %-6s  %lu files, %lu dirs\n",
            job_id,
            priority,
            path,
+           progress,
            status_string,
            file_count,
            dir_count);
-
-    free(status_string);
 }
 
 void handle_list_reply(int serverfd) {
