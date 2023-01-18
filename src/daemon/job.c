@@ -14,7 +14,7 @@ int job_init(struct Job *job) {
     job->priority = 2;
     job->status = JOB_STATUS_IN_PROGRESS;
     pthread_mutex_init(&job->status_mutex, NULL);
-    job->total_dir_count = 0;
+    job->total_subdir_count = 0;
     job->total_file_count = 0;
     job->total_path_len = 0;
 
@@ -58,7 +58,7 @@ void *traverse(void *vargs) {
     size_t path_len = strlen(path);
 
     job->status = JOB_STATUS_IN_PROGRESS;
-    job->total_dir_count = 0;
+    job->total_subdir_count = 0;
     job->total_file_count = 0;
     job->total_path_len = path_len;
 
@@ -118,7 +118,7 @@ void *traverse(void *vargs) {
                 new_dir->bytes += p->fts_statp->st_size;
 
                 current_dir = new_dir;
-                job->total_dir_count += 1;
+                job->total_subdir_count += 1;
                 job->total_path_len += strlen(relative_path);
             }
 

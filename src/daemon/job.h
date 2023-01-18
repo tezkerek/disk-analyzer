@@ -13,7 +13,7 @@ struct Job {
     pthread_mutex_t status_mutex;     /// Lock for `status`
     pthread_cond_t mutex_resume_cond; /// Condition for resuming job
     struct Directory *root;           /// Root directory of job
-    int64_t total_dir_count;          /// Number of all subdirs
+    int64_t total_subdir_count;       /// Number of all subdirs
     int64_t total_file_count;         /// Number of all files
     int64_t total_path_len;           /// Sum of lengths of all paths
 };
