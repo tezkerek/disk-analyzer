@@ -113,6 +113,7 @@ void *traverse(void *vargs) {
                 // Add it as a subdir of the current directory
                 current_dir->subdirs =
                     dirlist_push_front(current_dir->subdirs, new_dir);
+                new_dir->parent = current_dir;
 
                 new_dir->bytes += p->fts_statp->st_size;
 
