@@ -6,11 +6,6 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define JOB_STATUS_IN_PROGRESS 0
-#define JOB_STATUS_REMOVED     1
-#define JOB_STATUS_PAUSED      2
-#define JOB_STATUS_DONE        3
-
 struct Job {
     pthread_t thread;
     int8_t priority;
