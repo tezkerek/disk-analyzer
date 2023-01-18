@@ -39,88 +39,102 @@ void handle_print_reply(int serverfd) {
     int64_t entry_count;
     saferead(serverfd, &entry_count, sizeof(entry_count));
 
-    // TODO: Pretty print
-    char *last_dir;
-    last_dir = malloc(1);
     int64_t total_size = 0;
 
-    const char *units[] = {"B", "KB", "MB", "GB", "TB"};
-    const int UNIT_COUNT = sizeof(units) / sizeof(units[0]);
+    static const char *UNITS[] = {"B", "KB", "MB", "GB", "TB"};
+    const int UNIT_COUNT = sizeof(UNITS) / sizeof(UNITS[0]);
+
+    char *path = NULL;
+    size_t path_bufsize = 0;
+
+    char *last_top_dir = NULL;
+    size_t last_top_dir_bufsize = 0;
 
     for (int64_t i = 0; i < entry_count; ++i) {
+        char *branch_symbol;
+        if (i == 0) {
+            branch_symbol = "";
+        } else if (i == entry_count - 1) {
+            // Symbol for the last entry
+            branch_symbol = "└─ /";
+        } else {
+            // Symbol for middle entries
+            branch_symbol = "├─ /";
+        }
+
         int64_t path_len;
         saferead(serverfd, &path_len, sizeof(path_len));
 
-        char *path = da_malloc((path_len + 1) * sizeof(*path));
+        if (path_len + 1 > path_bufsize) {
+            path_bufsize = path_len + 1;
+            path = da_malloc(path_bufsize * sizeof(*path));
+        }
         saferead(serverfd, path, path_len);
         // Null terminate
         path[path_len] = 0;
 
-        int64_t dir_size;
-        saferead(serverfd, &dir_size, sizeof(dir_size));
+        int64_t dir_bytes;
+        saferead(serverfd, &dir_bytes, sizeof(dir_bytes));
 
-        int32_t poz = -1;
-        int32_t len = strlen(path);
-        for (int32_t j = 0; j < len; j++) {
-            if (path[j] == '/') {
-                poz = j;
-                break;
+        if (i == 0) {
+            total_size = dir_bytes;
+        }
+
+        // Find the top dir (first in the path)
+        const char *first_path_sep = strchr(path, '/');
+        size_t top_dir_len;
+        if (first_path_sep == NULL) {
+            // The entire path is the dir
+            top_dir_len = path_len;
+        } else {
+            top_dir_len = first_path_sep - path;
+        }
+
+        if (last_top_dir == NULL || strncmp(path, last_top_dir, top_dir_len) != 0) {
+            // Top dir changed
+            if (i > 0) {
+                // Output a newline when the top dir changes
+                puts("│");
             }
-        }
-        if (poz == -1) {
-            poz = strlen(path);
-        }
-        char *dir;
-        dir = malloc(poz + 1);
-        strncpy(dir, path, poz);
-        if (strcmp(dir, last_dir) != 0) {
-            if (i != 0) {
-                printf("│\n");
+
+            // Realloc last_top_dir if needed
+            if (top_dir_len + 1 > last_top_dir_bufsize) {
+                free(last_top_dir);
+                last_top_dir_bufsize = top_dir_len + 1;
+                last_top_dir =
+                    da_malloc(last_top_dir_bufsize * sizeof(*last_top_dir));
             }
-            free(last_dir);
-            last_dir = malloc(strlen(dir) + 1);
-            strncpy(last_dir, dir, strlen(dir));
+
+            // Update last_dir
+            strncpy(last_top_dir, path, top_dir_len);
         }
-        double size = (double)dir_size;
+
+        // Compute human size and the unit
+        double human_size = (double)dir_bytes;
         int32_t unit_index = 0;
-        while (size >= 1024 && unit_index < UNIT_COUNT - 1) {
-            size /= 1024;
+        while (human_size >= 1024 && unit_index < UNIT_COUNT - 1) {
+            human_size /= 1024;
             unit_index++;
         }
-        if (i != 0 && i != entry_count - 1) {
-            printf("├─/%s %.2lf%% %.2lf %s ",
-                   path,
-                   ((double)dir_size) / total_size * 100,
-                   size,
-                   units[unit_index]);
-            int aux = (int)(((double)dir_size) / total_size * 40);
-            for (int j = 0; j < aux; j++) {
-                printf("#");
-            }
-            printf("\n");
-        } else if (i == entry_count - 1) {
-            printf("└─/%s %.2lf%% %.2lf %s ",
-                   path,
-                   ((double)dir_size) / total_size * 100,
-                   size,
-                   units[unit_index]);
-            int aux = (int)(((double)dir_size) / total_size * 40);
-            for (int j = 0; j < aux; j++) {
-                printf("#");
-            }
-            printf("\n");
-        } else {
-            printf("%s %.2lf%%% .2lf %s ", path, 100.00, size, units[unit_index]);
-            for (int j = 0; j < 40; j++) {
-                printf("#");
-            }
-            printf("\n");
-            // total_size = dir_size;
-            total_size = 100000;
-        }
-        free(dir);
+
+        // Compute percentage and the bar width
+        double ratio = ((double)dir_bytes) / total_size;
+        double percentage = ratio * 100;
+        int bar_width = ratio * 40;
+
+        // Print line
+        printf("%s%s %.2lf%% %.2lf %s ",
+               branch_symbol,
+               path,
+               percentage,
+               human_size,
+               UNITS[unit_index]);
+        fputs_repeated("#", stdout, bar_width);
+        fputs("\n", stdout);
     }
-    free(last_dir);
+
+    free(path);
+    free(last_top_dir);
 }
 
 void handle_info_reply(int serverfd) {
@@ -152,7 +166,7 @@ void handle_info_reply(int serverfd) {
 
     // TODO: print header, align columns
     char *status_string;
-    status_string = malloc(12);
+    status_string = da_malloc(12);
     if (status == JOB_STATUS_IN_PROGRESS) {
         strncpy(status_string, "In progress", 12);
     } else if (status == JOB_STATUS_DONE) {
@@ -207,7 +221,7 @@ void handle_list_reply(int serverfd) {
 
         // TODO: print header, align columns
         char *status_string;
-        status_string = malloc(12);
+        status_string = da_malloc(12);
         if (status == JOB_STATUS_IN_PROGRESS) {
             strncpy(status_string, "In progress", 12);
         } else if (status == JOB_STATUS_DONE) {
