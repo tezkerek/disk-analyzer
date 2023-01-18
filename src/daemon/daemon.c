@@ -51,7 +51,7 @@ int8_t get_job_results(struct Job *job, struct ByteArray *result) {
     // TODO: Check that job is done first
 
     int8_t exit_code = 0;
-    int64_t entry_count = job->total_dir_count + 1;
+    int64_t entry_count = job->total_subdir_count + 1;
 
     // Calculate necessary space for the serialization
     size_t serialized_len =
@@ -64,7 +64,7 @@ int8_t get_job_results(struct Job *job, struct ByteArray *result) {
     memcpy(ptr, &exit_code, sizeof(exit_code));
     ptr += sizeof(exit_code);
 
-    memcpy(ptr, &job->total_dir_count, sizeof(entry_count));
+    memcpy(ptr, &entry_count, sizeof(entry_count));
     ptr += sizeof(entry_count);
 
     directory_serialize(job->root, ptr);
@@ -80,7 +80,7 @@ int get_job_info(struct Job *job, struct ByteArray *result) {
     int64_t payload_len = sizeof(int64_t) + sizeof(job->priority) + sizeof(int64_t) +
                           path_len + sizeof(progress) + sizeof(job->status) +
                           sizeof(job->total_file_count) +
-                          sizeof(job->total_dir_count);
+                          sizeof(job->total_subdir_count);
 
     bytearray_init(result, payload_len);
 
@@ -106,7 +106,7 @@ int get_job_info(struct Job *job, struct ByteArray *result) {
     memcpy(ptr, &job->total_file_count, sizeof(job->total_file_count));
     ptr += sizeof(job->total_file_count);
 
-    memcpy(ptr, &job->total_dir_count, sizeof(job->total_dir_count));
+    memcpy(ptr, &job->total_subdir_count, sizeof(job->total_subdir_count));
 
     return 0;
 }
