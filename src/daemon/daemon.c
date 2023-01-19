@@ -48,7 +48,7 @@ int bind_socket() {
 
 int8_t get_job_results(struct Job *job, struct ByteArray *result) {
     if (job->status != JOB_STATUS_DONE) {
-        return -128;
+        return -2;
     }
 
     int8_t exit_code = 0;
@@ -287,7 +287,11 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
 
         } else if (cmd == CMD_PRINT) {
-            get_job_results(job, reply);
+            exit_code = -get_job_results(job, reply);
+            if (exit_code != 0) {
+                bytearray_init(reply, sizeof(exit_code));
+                memcpy(reply->bytes, &exit_code, sizeof(exit_code));
+            }
         } else {
             return -1;
         }
