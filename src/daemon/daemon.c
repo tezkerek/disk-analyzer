@@ -74,44 +74,52 @@ int8_t get_job_results(struct Job *job, struct ByteArray *result) {
 
 int get_job_info(struct Job *job, struct ByteArray *result) {
     // TODO: Progress heuristic
-    int8_t progress = 42;
-
-    int64_t path_len = strlen(job->root->path);
-    int64_t payload_len = sizeof(int64_t) + sizeof(job->priority) + sizeof(int64_t) +
-                          path_len + sizeof(progress) + sizeof(job->status) +
-                          sizeof(job->total_file_count) +
-                          sizeof(job->total_subdir_count);
+    int64_t payload_len = sizeof(/* exit code */ int8_t) +
+                          sizeof(/* job id */ int64_t) + job_serialized_size(job);
 
     bytearray_init(result, payload_len);
 
-    char *ptr = result->bytes;
     // Leave space for the error code and job id
-    ptr += sizeof(int8_t) + sizeof(int64_t);
-
-    memcpy(ptr, &job->priority, sizeof(job->priority));
-    ptr += sizeof(job->priority);
-
-    memcpy(ptr, &path_len, sizeof(path_len));
-    ptr += sizeof(path_len);
-
-    memcpy(ptr, job->root->path, path_len);
-    ptr += path_len;
-
-    memcpy(ptr, &progress, sizeof(progress));
-    ptr += sizeof(progress);
-
-    memcpy(ptr, &job->status, sizeof(job->status));
-    ptr += sizeof(job->status);
-
-    memcpy(ptr, &job->total_file_count, sizeof(job->total_file_count));
-    ptr += sizeof(job->total_file_count);
-
-    memcpy(ptr, &job->total_subdir_count, sizeof(job->total_subdir_count));
+    char *buf = result->bytes + sizeof(int8_t) + sizeof(int64_t);
+    job_info_serialize(job, buf);
 
     return 0;
 }
 
-int list_jobs() {}
+int list_jobs(struct ByteArray *result) {
+    // Leave space for the exit code and the entry count
+    int64_t entry_count = 0;
+    int64_t total_bufsize = sizeof(/* exit code */ int8_t) + sizeof(entry_count);
+
+    // Measure required buffer size
+    for (int64_t job_id = 0; job_id < job_count; ++job_id) {
+        struct Job *job = find_job_by_id(job_id);
+        if (job == NULL || job->status == JOB_STATUS_REMOVED)
+            continue;
+
+        total_bufsize += sizeof(/* job id */ int64_t) + job_serialized_size(job);
+        ++entry_count;
+    }
+
+    bytearray_init(result, total_bufsize);
+
+    char *ptr = result->bytes + sizeof(/* exit code */ int8_t);
+    memcpy(ptr, &entry_count, sizeof(entry_count));
+    ptr += sizeof(entry_count);
+
+    // Add entries to buffer
+    for (int64_t job_id = 0; job_id < job_count; ++job_id) {
+        struct Job *job = find_job_by_id(job_id);
+        if (job == NULL || job->status == JOB_STATUS_REMOVED)
+            continue;
+
+        memcpy(ptr, &job_id, sizeof(job_id));
+        ptr += sizeof(job_id);
+        ptr = job_info_serialize(job, ptr);
+    }
+
+    return 0;
+}
 
 /**
  * Creates a job and returns its id through the job_id argument.
@@ -207,7 +215,9 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
         }
     } else if (cmd == CMD_LIST) {
-        list_jobs();
+        list_jobs(reply);
+        exit_code = 0;
+        memcpy(reply->bytes, &exit_code, sizeof(exit_code));
     } else {
         int64_t job_id;
         if (payload->len != sizeof(job_id)) {
@@ -228,14 +238,27 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
 
         if (cmd == CMD_SUSPEND) {
             pause_job(job);
+            exit_code = 0;
+            bytearray_init(reply, sizeof(exit_code));
+            memcpy(reply->bytes, &exit_code, sizeof(exit_code));
+
         } else if (cmd == CMD_REMOVE) {
             remove_job(job);
+            exit_code = 0;
+            bytearray_init(reply, sizeof(exit_code));
+            memcpy(reply->bytes, &exit_code, sizeof(exit_code));
+
         } else if (cmd == CMD_RESUME) {
             resume_job(job);
+            exit_code = 0;
+            bytearray_init(reply, sizeof(exit_code));
+            memcpy(reply->bytes, &exit_code, sizeof(exit_code));
+
         } else if (cmd == CMD_INFO) {
             get_job_info(job, reply);
             memcpy(reply->bytes, &exit_code, sizeof(exit_code));
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
+
         } else if (cmd == CMD_PRINT) {
             get_job_results(job, reply);
         } else {
