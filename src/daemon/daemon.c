@@ -14,7 +14,6 @@
 #define MAX_THREADS  100
 #define MAX_CHILDREN 100
 
-// TODO: Atomic int
 static uint64_t job_count = 0;
 
 struct Job *jobs[MAX_THREADS];
@@ -73,7 +72,6 @@ int8_t get_job_results(struct Job *job, struct ByteArray *result) {
 }
 
 int get_job_info(struct Job *job, struct ByteArray *result) {
-    // TODO: Progress heuristic
     int64_t payload_len = sizeof(/* exit code */ int8_t) +
                           sizeof(/* job id */ int64_t) + job_serialized_size(job);
 
@@ -143,7 +141,6 @@ int8_t create_job(const char *path, int8_t priority, int64_t *job_id) {
 
     args->job = new_job;
 
-    // TODO: Atomic int
     *job_id = job_count;
     ++job_count;
 
