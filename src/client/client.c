@@ -261,14 +261,48 @@ int handle_reply(int8_t cmd, int serverfd) {
             int64_t job_id;
             saferead(serverfd, &job_id, sizeof(job_id));
             printf("New analysis task with ID %ld\n", job_id);
-        }
-    } else if (cmd == CMD_INFO) {
-        if (code == 0) {
-            handle_info_reply(serverfd);
+        } else if (code == 1) {
+            fputs("Path does not exist\n", stderr);
+            return -1;
+        } else if (code == 2) {
+            int64_t job_id;
+            saferead(serverfd, &job_id, sizeof(job_id));
+            fprintf(stderr,
+                    "Path already being analyzed by job with ID %lu\n",
+                    job_id);
+            return -1;
         }
     } else if (cmd == CMD_PRINT) {
         if (code == 0) {
             handle_print_reply(serverfd);
+        } else if (code == 1) {
+            fputs("Job not found\n", stderr);
+        } else if (code == 2) {
+            fputs("Job still in progress\n", stderr);
+        }
+    } else if (cmd == CMD_LIST) {
+        if (code == 0) {
+            handle_list_reply(serverfd);
+        } else {
+            fputs("Unknown error\n", stderr);
+        }
+    } else {
+        if (code == 1) {
+            fputs("Job not found\n", stderr);
+            return -1;
+        } else if (code > 1) {
+            fputs("Unknown error\n", stderr);
+            return -1;
+        }
+
+        if (cmd == CMD_INFO) {
+            handle_info_reply(serverfd);
+        } else if (cmd == CMD_SUSPEND) {
+            fputs("Job paused\n", stdout);
+        } else if (cmd == CMD_RESUME) {
+            fputs("Job resumed\n", stdout);
+        } else if (cmd == CMD_REMOVE) {
+            fputs("Job removed\n", stdout);
         }
     }
     return 0;
