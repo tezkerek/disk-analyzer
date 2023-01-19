@@ -101,6 +101,7 @@ void *traverse(void *vargs) {
 
             // if it's the root directory, we shouldn't create it again
             if (is_root) {
+                current_dir->bytes += p->fts_statp->st_size;
                 is_root = 0;
             } else {
                 // Create a new directory
