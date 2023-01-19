@@ -164,7 +164,6 @@ void handle_info_reply(int serverfd, int print_heading) {
     int64_t dir_count;
     saferead(serverfd, &dir_count, sizeof(dir_count));
 
-    // TODO: print header, align columns
     const char *status_string;
     if (status == JOB_STATUS_IN_PROGRESS) {
         status_string = "In progress";

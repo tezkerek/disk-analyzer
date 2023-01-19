@@ -81,14 +81,12 @@ void *traverse(void *vargs) {
 
     int is_root = 1;
     while ((p = fts_read(ftsp)) != NULL) {
-
         if (check_suspend(job) == 1) {
             fts_close(ftsp);
             job_destroy(job);
 
             return 0;
         }
-        // TODO: Check if job was removed as well
 
         switch (p->fts_info) {
         case FTS_F:
