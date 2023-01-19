@@ -1,7 +1,6 @@
 #include "job.h"
 #include <common/ipc.h>
 #include <common/utils.h>
-#include <dirent.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -122,42 +121,23 @@ int list_jobs(struct ByteArray *result) {
     return 0;
 }
 /**
- * Returns 0 for success or an error code otherwise.
- * Error:  1 if path is not already analyed
+ * Returns the id of the job containing the path, and -1 if no such job is found.
  */
-int analysed_before(const char *path) {
-    for (uint64_t job_id = 0; job_id < job_count; job_id++) {
+int64_t find_job_containing_path(const char *path) {
+    for (int64_t job_id = 0; job_id < job_count; job_id++) {
+        struct Job *job = find_job_by_id(job_id);
+        if (job == NULL || job->status == JOB_STATUS_REMOVED) {
+            continue;
+        }
 
-        struct Job *check_job;
-        if ((check_job = find_job_by_id(job_id)) != NULL) {
-
-            if (check_job->status == JOB_STATUS_REMOVED) {
-                continue;
-            }
-            if (strstr(path, check_job->root->path) != NULL) {
-                return 0;
-            }
+        if (strstr(path, job->root->path) != NULL) {
+            return job_id;
         }
     }
-    return 1;
-}
-/**
- * Returns 0 for success or an error code otherwise.
- * Errors:  1 if path does not exist
- *         -1 if the check failed
- */
-int valid_path(const char *path) {
-    DIR *dir = opendir(path);
-    if (dir) {
-        closedir(dir);
-        return 0;
 
-    } else if (ENOENT == errno) {
-        return 1;
-
-    } else
-        return -1;
+    return -1;
 }
+
 /**
  * Creates a job and returns its id through the job_id argument.
  * Returns 0 for success or an error code otherwise.
@@ -165,10 +145,16 @@ int valid_path(const char *path) {
  *         -2 if path is part of an existing job (the returned job_id)
  */
 int8_t create_job(const char *path, int8_t priority, int64_t *job_id) {
-    if (valid_path(path) == 1) {
+    int path_result = exists_dir(path);
+    if (path_result < 1) {
+        if (path_result < 0) {
+            perror("Path check");
+        }
         return -1;
     }
-    if (analysed_before(path) == 0) {
+
+    *job_id = find_job_containing_path(path);
+    if (*job_id >= 0) {
         return -2;
     }
 
@@ -242,17 +228,17 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
         exit_code = create_job(path, priority, &job_id);
 
         free(path);
+        exit_code = -exit_code;
 
         // Set reply payload
         int64_t reply_len = sizeof(exit_code);
-        if (exit_code == 0) {
+        if (exit_code == 0 || exit_code == 2) {
             reply_len += sizeof(job_id);
         }
         bytearray_init(reply, reply_len);
 
-        exit_code = -exit_code;
         memcpy(reply->bytes, &exit_code, sizeof(exit_code));
-        if (exit_code == 0) {
+        if (exit_code == 0 || exit_code == 2) {
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
         }
     } else if (cmd == CMD_LIST) {

@@ -19,6 +19,11 @@ int fputs_repeated(const char *restrict str, FILE *restrict stream, int count);
  */
 void *da_malloc(size_t size);
 
+/**
+ * Returns 1 if path exists, 0 if it does not, and -1 for error.
+ */
+int exists_dir(const char *path);
+
 struct ByteArray {
     int64_t len;
     char *bytes;
