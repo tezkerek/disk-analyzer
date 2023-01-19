@@ -40,4 +40,16 @@ int resume_job(struct Job *job);
 
 int remove_job(struct Job *job);
 
+/**
+ * The required size to serialize the job.
+ */
+int64_t job_serialized_size(struct Job *job);
+
+/**
+ * Serializes the job info into buf.
+ * Assumes that enough space has been allocated.
+ * Returns pointer to the next position in the buffer to write.
+ */
+char* job_info_serialize(struct Job *job, char *buf);
+
 #endif

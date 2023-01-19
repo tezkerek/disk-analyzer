@@ -1,7 +1,7 @@
 #include "job.h"
 #include "directory.h"
-#include <common/utils.h>
 #include <common/ipc.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <fts.h>
 #include <stdio.h>
@@ -184,4 +184,40 @@ int remove_job(struct Job *job) {
     pthread_mutex_unlock(status_mutex);
 
     return 0;
+}
+
+int64_t job_serialized_size(struct Job *job) {
+    int64_t path_len = strlen(job->root->path);
+    return sizeof(job->priority) + sizeof(path_len) + path_len +
+           sizeof(/* progress */ int8_t) + sizeof(job->status) +
+           sizeof(job->total_file_count) + sizeof(job->total_subdir_count);
+}
+
+char *job_info_serialize(struct Job *job, char *buf) {
+    char *ptr = buf;
+
+    memcpy(ptr, &job->priority, sizeof(job->priority));
+    ptr += sizeof(job->priority);
+
+    int64_t path_len = strlen(job->root->path);
+    memcpy(ptr, &path_len, sizeof(path_len));
+    ptr += sizeof(path_len);
+
+    memcpy(ptr, job->root->path, path_len);
+    ptr += path_len;
+
+    int8_t progress = job->status == JOB_STATUS_DONE ? 100 : 50;
+    memcpy(ptr, &progress, sizeof(progress));
+    ptr += sizeof(progress);
+
+    memcpy(ptr, &job->status, sizeof(job->status));
+    ptr += sizeof(job->status);
+
+    memcpy(ptr, &job->total_file_count, sizeof(job->total_file_count));
+    ptr += sizeof(job->total_file_count);
+
+    memcpy(ptr, &job->total_subdir_count, sizeof(job->total_subdir_count));
+    ptr += sizeof(job->total_subdir_count);
+
+    return ptr;
 }
