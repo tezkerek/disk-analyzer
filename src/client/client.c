@@ -137,7 +137,7 @@ void handle_print_reply(int serverfd) {
     free(last_top_dir);
 }
 
-void handle_info_reply(int serverfd) {
+void handle_info_reply(int serverfd, int print_heading) {
     int64_t job_id;
     saferead(serverfd, &job_id, sizeof(job_id));
 
@@ -176,15 +176,17 @@ void handle_info_reply(int serverfd) {
         status_string = "Removed";
     }
 
-    printf("%-3s %-3s  %-*s %-9s %-*s  %s\n",
-           "ID",
-           "Pri",
-           (int)path_len,
-           "Path",
-           "Progress",
-           (int)strlen(status_string),
-           "Status",
-           "Details");
+    if (print_heading) {
+        printf("%-3s %-3s  %-*s %-9s %-*s  %s\n",
+               "ID",
+               "Pri",
+               (int)path_len,
+               "Path",
+               "Progress",
+               (int)strlen(status_string),
+               "Status",
+               "Details");
+    }
     printf("%-3lu %-3d %s  %d%%       %-6s  %lu files, %lu dirs\n",
            job_id,
            priority,
@@ -199,62 +201,16 @@ void handle_list_reply(int serverfd) {
     int64_t entry_count;
     saferead(serverfd, &entry_count, sizeof(entry_count));
 
+    int print_heading = 1;
     for (int64_t i = 0; i < entry_count; ++i) {
-        int64_t job_id;
-        saferead(serverfd, &job_id, sizeof(job_id));
-
-        int8_t priority;
-        saferead(serverfd, &priority, sizeof(priority));
-
-        int64_t path_len;
-        saferead(serverfd, &path_len, sizeof(path_len));
-
-        char *path = da_malloc((path_len + 1) * sizeof(*path));
-        saferead(serverfd, path, path_len);
-        // Null terminate
-        path[path_len] = 0;
-
-        int8_t progress;
-        saferead(serverfd, &progress, sizeof(progress));
-
-        int8_t status;
-        saferead(serverfd, &status, sizeof(status));
-
-        int64_t file_count;
-        saferead(serverfd, &file_count, sizeof(file_count));
-
-        int64_t dir_count;
-        saferead(serverfd, &dir_count, sizeof(dir_count));
-
-        // TODO: print header, align columns
-        char *status_string;
-        status_string = da_malloc(12);
-        if (status == JOB_STATUS_IN_PROGRESS) {
-            strncpy(status_string, "In progress", 12);
-        } else if (status == JOB_STATUS_DONE) {
-            strncpy(status_string, "Done", 5);
-        } else if (status == JOB_STATUS_PAUSED) {
-            strncpy(status_string, "Paused", 7);
-        } else if (status == JOB_STATUS_REMOVED) {
-            strncpy(status_string, "Removed", 8);
-        }
-
-        printf("Id: %lu, Priority: %d %s \nstatus: %s, %lu files, %lu dirs\n",
-               job_id,
-               priority,
-               path,
-               status_string,
-               file_count,
-               dir_count);
-
-        free(status_string);
+        handle_info_reply(serverfd, print_heading);
+        print_heading = 0;
     }
 }
 
 int handle_reply(int8_t cmd, int serverfd) {
     int8_t code;
     saferead(serverfd, &code, sizeof(code));
-    printf("Code %d\n", code);
 
     if (cmd == CMD_ADD) {
         if (code == 0) {
@@ -296,7 +252,7 @@ int handle_reply(int8_t cmd, int serverfd) {
         }
 
         if (cmd == CMD_INFO) {
-            handle_info_reply(serverfd);
+            handle_info_reply(serverfd, 1);
         } else if (cmd == CMD_SUSPEND) {
             fputs("Job paused\n", stdout);
         } else if (cmd == CMD_RESUME) {
