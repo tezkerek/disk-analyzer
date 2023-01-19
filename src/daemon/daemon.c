@@ -126,7 +126,7 @@ int list_jobs(struct ByteArray *result) {
  * Error:  1 if path is not already analyed
  */
 int analysed_before(const char *path) {
-    for (size_t job_id = 0; job_id < job_count; job_id++) {
+    for (uint64_t job_id = 0; job_id < job_count; job_id++) {
 
         struct Job *check_job;
         if ((check_job = find_job_by_id(job_id)) != NULL) {
@@ -134,11 +134,7 @@ int analysed_before(const char *path) {
             if (check_job->status == JOB_STATUS_REMOVED) {
                 continue;
             }
-            printf("asta e needle %s\n", check_job->root->path);
-            printf("asta e  hay %s\n", path);
-
             if (strstr(path, check_job->root->path) != NULL) {
-                puts("found");
                 return 0;
             }
         }
@@ -169,7 +165,6 @@ int valid_path(const char *path) {
  *         -2 if path is part of an existing job (the returned job_id)
  */
 int8_t create_job(const char *path, int8_t priority, int64_t *job_id) {
-    // TODO: Check that path exists and is not contained in existing job
     if (valid_path(path) == 1) {
         return -1;
     }
