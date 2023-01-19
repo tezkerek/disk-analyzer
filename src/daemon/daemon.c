@@ -1,6 +1,7 @@
 #include "job.h"
 #include <common/ipc.h>
 #include <common/utils.h>
+#include <dirent.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -47,7 +48,9 @@ int bind_socket() {
 }
 
 int8_t get_job_results(struct Job *job, struct ByteArray *result) {
-    // TODO: Check that job is done first
+    if (job->status != JOB_STATUS_DONE) {
+        return -128;
+    }
 
     int8_t exit_code = 0;
     int64_t entry_count = job->total_subdir_count + 1;
@@ -118,7 +121,47 @@ int list_jobs(struct ByteArray *result) {
 
     return 0;
 }
+/**
+ * Returns 0 for success or an error code otherwise.
+ * Error:  1 if path is not already analyed
+ */
+int analysed_before(const char *path) {
+    for (size_t job_id = 0; job_id < job_count; job_id++) {
 
+        struct Job *check_job;
+        if ((check_job = find_job_by_id(job_id)) != NULL) {
+
+            if (check_job->status == JOB_STATUS_REMOVED) {
+                continue;
+            }
+            printf("asta e needle %s\n", check_job->root->path);
+            printf("asta e  hay %s\n", path);
+
+            if (strstr(path, check_job->root->path) != NULL) {
+                puts("found");
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+/**
+ * Returns 0 for success or an error code otherwise.
+ * Errors:  1 if path does not exist
+ *         -1 if the check failed
+ */
+int valid_path(const char *path) {
+    DIR *dir = opendir(path);
+    if (dir) {
+        closedir(dir);
+        return 0;
+
+    } else if (ENOENT == errno) {
+        return 1;
+
+    } else
+        return -1;
+}
 /**
  * Creates a job and returns its id through the job_id argument.
  * Returns 0 for success or an error code otherwise.
@@ -127,6 +170,12 @@ int list_jobs(struct ByteArray *result) {
  */
 int8_t create_job(const char *path, int8_t priority, int64_t *job_id) {
     // TODO: Check that path exists and is not contained in existing job
+    if (valid_path(path) == 1) {
+        return -1;
+    }
+    if (analysed_before(path) == 0) {
+        return -2;
+    }
 
     struct Job *new_job = da_malloc(sizeof(*new_job));
     job_init(new_job);
