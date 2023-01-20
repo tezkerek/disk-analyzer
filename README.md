@@ -1,25 +1,10 @@
-### TODO
-
-- [x] client argument parsing (POSIX getopt)
-- [x] ipc: sockets
-- [ ] daemon
-    - array of thread ids and state
-        - reallocation??
-    - (1): `pthread_create`
-        - (b): recursive basename() and check for existence
-    - (2): `pthread_cancel`? or running state + polling?
-    - (3): `pthread_suspend`? or mutexes?
-    - (4): query state
-    - task progress - query number of files in first level? all levels?
-    - traversal
-        - nftw
-        - don't follow symlinks
-- [ ] printing results in client
-    - pretty printing can be complex
-
 ### Build
 
-`$ make build`
+```shell
+$ make all
+$ build/dad
+$ build/da --help
+```
 
 # IPC protocol
 
@@ -111,4 +96,14 @@ If the code is not 0, an error occurred.
 **Error**:
 - `code 1` - job not found
 - `code 2` - job not done
-    - an entry like `CMD_INFO`
+
+### TODO
+
+- [x] client argument parsing (POSIX getopt)
+- [x] ipc: sockets
+- [x] daemon
+    - [x] array of thread ids and state
+    - [x] traversal - fts
+    - [ ] job progress - heuristic?
+- [x] printing results in client
+
