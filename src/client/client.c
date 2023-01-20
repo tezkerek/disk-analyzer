@@ -217,7 +217,7 @@ int handle_reply(int8_t cmd, int serverfd) {
             saferead(serverfd, &job_id, sizeof(job_id));
             printf("New analysis task with ID %ld\n", job_id);
         } else if (code == 1) {
-            fputs("Path does not exist\n", stderr);
+            fputs("Could not read dir\n", stderr);
             return -1;
         } else if (code == 2) {
             int64_t job_id;
