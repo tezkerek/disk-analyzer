@@ -47,7 +47,9 @@ int bind_socket() {
 }
 
 int8_t get_job_results(struct Job *job, struct ByteArray *result) {
-    // TODO: Check that job is done first
+    if (job->status != JOB_STATUS_DONE) {
+        return -2;
+    }
 
     int8_t exit_code = 0;
     int64_t entry_count = job->total_subdir_count + 1;
@@ -118,6 +120,23 @@ int list_jobs(struct ByteArray *result) {
 
     return 0;
 }
+/**
+ * Returns the id of the job containing the path, and -1 if no such job is found.
+ */
+int64_t find_job_containing_path(const char *path) {
+    for (int64_t job_id = 0; job_id < job_count; job_id++) {
+        struct Job *job = find_job_by_id(job_id);
+        if (job == NULL || job->status == JOB_STATUS_REMOVED) {
+            continue;
+        }
+
+        if (strstr(path, job->root->path) != NULL) {
+            return job_id;
+        }
+    }
+
+    return -1;
+}
 
 /**
  * Creates a job and returns its id through the job_id argument.
@@ -126,7 +145,18 @@ int list_jobs(struct ByteArray *result) {
  *         -2 if path is part of an existing job (the returned job_id)
  */
 int8_t create_job(const char *path, int8_t priority, int64_t *job_id) {
-    // TODO: Check that path exists and is not contained in existing job
+    int path_result = exists_dir(path);
+    if (path_result < 1) {
+        if (path_result < 0) {
+            perror("Path check");
+        }
+        return -1;
+    }
+
+    *job_id = find_job_containing_path(path);
+    if (*job_id >= 0) {
+        return -2;
+    }
 
     struct Job *new_job = da_malloc(sizeof(*new_job));
     job_init(new_job);
@@ -198,17 +228,17 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
         exit_code = create_job(path, priority, &job_id);
 
         free(path);
+        exit_code = -exit_code;
 
         // Set reply payload
         int64_t reply_len = sizeof(exit_code);
-        if (exit_code == 0) {
+        if (exit_code == 0 || exit_code == 2) {
             reply_len += sizeof(job_id);
         }
         bytearray_init(reply, reply_len);
 
-        exit_code = -exit_code;
         memcpy(reply->bytes, &exit_code, sizeof(exit_code));
-        if (exit_code == 0) {
+        if (exit_code == 0 || exit_code == 2) {
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
         }
     } else if (cmd == CMD_LIST) {
@@ -257,7 +287,11 @@ int handle_ipc_cmd(int8_t cmd, struct ByteArray *payload, struct ByteArray *repl
             memcpy(reply->bytes + sizeof(exit_code), &job_id, sizeof(job_id));
 
         } else if (cmd == CMD_PRINT) {
-            get_job_results(job, reply);
+            exit_code = -get_job_results(job, reply);
+            if (exit_code != 0) {
+                bytearray_init(reply, sizeof(exit_code));
+                memcpy(reply->bytes, &exit_code, sizeof(exit_code));
+            }
         } else {
             return -1;
         }
