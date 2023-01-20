@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -341,17 +342,45 @@ void *monitor_ipc(void *vserverfd) {
     }
 }
 
-int main() {
-    /* int childpid = fork(); */
+static void daemonize() {
+    int childpid = fork();
+    if (childpid == -1) {
+        // Failed to fork
+        exit(EXIT_FAILURE);
+    }
+    if (childpid > 0) {
+        // Forked successfully
+        exit(EXIT_SUCCESS);
+    }
 
-    /* if (childpid == -1) { */
-    /*     // Failed to fork */
-    /*     return 1; */
-    /* } */
-    /* if (childpid > 0) { */
-    /*     // Forked successfully */
-    /*     return 0; */
-    /* } */
+    if (setsid() < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    // Second fork
+    childpid = fork();
+    if (childpid == -1) {
+        // Failed to fork
+        exit(EXIT_FAILURE);
+    }
+    if (childpid > 0) {
+        // Forked successfully
+        exit(EXIT_SUCCESS);
+    }
+
+    umask(0);
+
+    if (chdir("/") < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    for (int x = sysconf(_SC_OPEN_MAX); x >= 0; x--) {
+        close(x);
+    }
+}
+
+int main() {
+    daemonize();
 
     // Prevent SIGPIPE from stopping the daemon
     signal(SIGPIPE, SIG_IGN);
